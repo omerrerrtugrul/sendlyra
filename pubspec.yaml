@@ -1,0 +1,28 @@
+name: sendlyra
+description: "SendLyra — sunucusuz, yerel ağ üzerinden şifreli dosya ve mesaj paylaşım uygulaması."
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.2
+  file_picker: ^8.1.2
+  path_provider: ^2.1.4
+  shared_preferences: ^2.3.2
+  cryptography: ^2.7.0
+  crypto: ^3.0.5
+  qr_flutter: ^4.1.0
+  desktop_drop: ^0.4.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

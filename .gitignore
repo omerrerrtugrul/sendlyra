@@ -1,0 +1,20 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Platform build outputs
+**/android/.gradle/
+**/android/local.properties
+**/ios/Pods/
+**/macos/Pods/
+**/linux/flutter/ephemeral/
+**/windows/flutter/ephemeral/
