@@ -9,7 +9,9 @@ import 'package:cryptography/cryptography.dart';
 import '../models/transfer_job.dart';
 import '../utils/path_safety.dart';
 import 'lyra_channel.dart';
+import 'lyra_crypto.dart';
 import 'lyra_message.dart';
+import 'lyra_protocol.dart';
 
 /// Sunucu tarafı politikası: PIN kontrolü ve teklif kararı.
 class ServerPolicy {
@@ -20,7 +22,12 @@ class ServerPolicy {
   final Future<AcceptDecision> Function(IncomingOffer offer, HelloInfo peer,
       {required bool pinVerified}) onOffer;
 
-  const ServerPolicy({required this.pin, required this.onOffer});
+  /// El sıkışma sonrası ek kimlik kontrolü (ör. bilinen parmak izi ile
+  /// karşılaştırma). Hata nedeni döndürürse bağlantı reddedilir.
+  final Future<String?> Function(HelloInfo peer)? onHandshake;
+
+  const ServerPolicy(
+      {required this.pin, required this.onOffer, this.onHandshake});
 }
 
 /// Transfer sunucusu: gelen bağlantıları dinler ve dosyaları diske yazar.
@@ -37,6 +44,11 @@ class LyraTransferServer {
 
   ServerSocket? _server;
   final _connections = <LyraChannel>{};
+
+  /// PIN deneme kilidi: adres → başarısız deneme zamanları.
+  final _pinAttempts = <String, List<DateTime>>{};
+  static const _maxPinAttempts = 5;
+  static const _pinLockout = Duration(minutes: 5);
 
   LyraTransferServer({
     required this.localInfo,
@@ -87,6 +99,15 @@ class LyraTransferServer {
 
     try {
       final peer = await channel.handshake(localInfo, keyPair: keyPair);
+      final remoteAddr = channel.socket.remoteAddress.address;
+
+      // Ek kimlik kontrolü (ör. bilinen parmak iziyle karşılaştırma / TOFU).
+      final handshakeError = await policy.onHandshake?.call(peer);
+      if (handshakeError != null) {
+        await channel
+            .sendControlAndWait({'t': MsgType.error, 'reason': handshakeError});
+        return;
+      }
 
       // 1) Kimlik doğrulama
       var pinVerified = false;
@@ -113,20 +134,42 @@ class LyraTransferServer {
         final data = event.data;
         switch (type) {
           case MsgType.auth:
+            if (_isLockedOut(remoteAddr)) {
+              await channel.sendControlAndWait({
+                't': MsgType.authResult,
+                'ok': false,
+                'reason': 'çok fazla hatalı deneme',
+              });
+              done = true;
+              break;
+            }
             final pinValue = data['pin'] as String? ?? '';
             pinVerified = expectedPin == null ||
                 expectedPin.isEmpty ||
-                pinValue == expectedPin;
-            channel.sendControl({
+                LyraCryptoIdentity.constantTimeEquals(
+                    pinValue, expectedPin);
+            await channel.sendControlAndWait({
               't': MsgType.authResult,
               'ok': pinVerified,
               if (!pinVerified) 'reason': 'PIN hatalı',
             });
             if (!pinVerified) {
+              _registerFailedAttempt(remoteAddr);
               done = true;
             }
 
           case MsgType.offer:
+            // K-3: PIN tanımlıysa ve kimlik doğrulaması yapılmadıysa
+            // teklif hiçbir koşulda kabul edilemez.
+            if ((expectedPin != null && expectedPin.isNotEmpty) &&
+                !pinVerified) {
+              await channel.sendControlAndWait({
+                't': MsgType.error,
+                'reason': 'önce kimlik doğrulaması gerekli',
+              });
+              done = true;
+              break;
+            }
             offer = IncomingOffer.fromJson(data);
             job = TransferJob(
               id: offer.jobId.isEmpty ? _newId() : offer.jobId,
@@ -151,7 +194,7 @@ class LyraTransferServer {
             final decision = await policy.onOffer(offer, peer,
                 pinVerified: pinVerified);
             if (!decision.accepted) {
-              channel.sendControl({
+              await channel.sendControlAndWait({
                 't': MsgType.reject,
                 'reason': decision.reason ?? 'reddedildi',
               });
@@ -164,7 +207,10 @@ class LyraTransferServer {
             }
 
             // Devam ettirme: yarım dosyaların boyutlarını bildir.
+            // Çakışma yönetimi: hedef ad doluysa `ad (2).ext` üretilir ve
+            // son ad istemciye bildirilir (Y-6).
             final resume = <String, int>{};
+            final names = <String, String>{};
             for (final f in offer.files) {
               final partPath =
                   '${safeJoin(saveDir, f.targetPath)}${LyraTransferServer.partSuffix}';
@@ -174,12 +220,20 @@ class LyraTransferServer {
                 if (len > 0 && len < f.size) {
                   resume[f.id] = len;
                 }
+                names[f.id] = f.targetPath;
+                continue;
               }
+              final resolved =
+                  await _resolveCollision(saveDir, f.targetPath);
+              names[f.id] = resolved;
+              final ft = job.files.firstWhere((x) => x.id == f.id);
+              ft.relPath = resolved;
             }
             channel.sendControl({
               't': MsgType.accept,
               'job': job.id,
               'resume': resume,
+              'names': names,
             });
             job.state = JobState.transferring;
             onJobUpdated?.call(job);
@@ -197,13 +251,38 @@ class LyraTransferServer {
             currentPartPath = partPath;
             final part = File(partPath);
             await part.parent.create(recursive: true);
+            hasher = sha256.startChunkedConversion(sink);
+            if (offset > 0) {
+              // Y-7: resume'da mevcut yarım dosyanın başı da hash
+              // zincirine katılır; böylece eski verideki bozulma da
+              // tespit edilir.
+              final prefixLen = await part.length();
+              if (prefixLen < offset) {
+                throw LyraProtocolException(
+                    'resume ofseti dosyadan büyük ($prefixLen < $offset)');
+              }
+              final praf = await part.open();
+              try {
+                var remaining = offset;
+                while (remaining > 0) {
+                  final n = remaining > LyraProtocol.chunkSize
+                      ? LyraProtocol.chunkSize
+                      : remaining;
+                  final buf = await praf.read(n);
+                  if (buf.isEmpty) break;
+                  hasher.add(buf);
+                  remaining -= buf.length;
+                }
+              } finally {
+                await praf.close();
+              }
+            }
             raf = await part.open(
                 mode: offset > 0 ? FileMode.append : FileMode.write);
             if (offset > 0) {
               currentFile.done = offset;
               job!.transferred += offset;
             }
-            hasher = sha256.startChunkedConversion(sink);
 
           case MsgType.fileEnd:
             await raf?.flush();
@@ -219,7 +298,7 @@ class LyraTransferServer {
                   sink.value.isNotEmpty &&
                   sink.value != expected) {
                 file.error = 'sha256 uyuşmuyor';
-                channel.sendControl({
+                await channel.sendControlAndWait({
                   't': MsgType.error,
                   'reason': 'sha256 uyuşmuyor',
                 });
@@ -232,8 +311,16 @@ class LyraTransferServer {
               }
               final finalPath =
                   safeJoin(saveDir, file.relPath ?? file.name);
-              await File(currentPartPath).rename(finalPath);
-              file.savedPath = finalPath;
+              // Yarım dosya → nihai ad; hedef o arada dolmuşsa çakışma adı.
+              var target = finalPath;
+              if (await File(target).exists()) {
+                final resolved = await _resolveCollision(
+                    saveDir, file.relPath ?? file.name);
+                target = safeJoin(saveDir, resolved);
+                file.relPath = resolved;
+              }
+              await File(currentPartPath).rename(target);
+              file.savedPath = target;
               file.completed = true;
               currentPartPath = null;
               onJobUpdated?.call(activeJob);
@@ -242,7 +329,7 @@ class LyraTransferServer {
           case MsgType.done:
             await raf?.close();
             raf = null;
-            channel.sendControl({'t': MsgType.done, 'job': job?.id});
+            await channel.sendControlAndWait({'t': MsgType.done, 'job': job?.id});
             if (job != null) {
               job.state = JobState.completed;
               job.finishedAt = DateTime.now();
@@ -282,6 +369,44 @@ class LyraTransferServer {
   }
 
   static const String partSuffix = '.lyrapart';
+
+  /// Hedef yol doluysa `ad (2).ext` biçiminde çakışmasız göreli yol üretir.
+  static Future<String> _resolveCollision(
+      String saveDir, String relPath) async {
+    final base = safeJoin(saveDir, relPath);
+    if (!await File(base).exists() &&
+        !await File('$base$partSuffix').exists()) {
+      return relPath;
+    }
+    final slash = relPath.replaceAll(r'\', '/').lastIndexOf('/');
+    final dir = slash >= 0 ? relPath.substring(0, slash + 1) : '';
+    final name = slash >= 0 ? relPath.substring(slash + 1) : relPath;
+    final unique = uniqueName(name, (candidate) {
+      final p = safeJoin(saveDir, '$dir$candidate');
+      return File(p).existsSync() || File('$p$partSuffix').existsSync();
+    });
+    return '$dir$unique';
+  }
+
+  /// Başarısız PIN denemesi kaydeder.
+  void _registerFailedAttempt(String address) {
+    final list = _pinAttempts.putIfAbsent(address, () => <DateTime>[])
+      ..add(DateTime.now());
+    list.removeWhere(
+        (t) => DateTime.now().difference(t) > _pinLockout);
+    if (list.length > _maxPinAttempts) {
+      // Kilit süresi boyunca listeyi uzat; _isLockedOut süreyi yönetir.
+      list.add(DateTime.now());
+    }
+  }
+
+  /// Adres kilitli mi? (son başarısız denemeden bu yana süre geçmediyse)
+  bool _isLockedOut(String address) {
+    final list = _pinAttempts[address];
+    if (list == null || list.length < _maxPinAttempts) return false;
+    final last = list.last;
+    return DateTime.now().difference(last) < _pinLockout;
+  }
 
   static String _newId() {
     final rand = Random.secure();

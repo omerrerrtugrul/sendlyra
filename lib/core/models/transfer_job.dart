@@ -18,7 +18,7 @@ class FileTransfer {
   final String id;
   final String name;
   final int size;
-  final String? relPath; // klasör yapısını koruyan göreli yol
+  String? relPath; // klasör yapısını koruyan göreli yol (çakışma adı için değiştirilebilir)
   int done;
   String? savedPath;
   bool completed;

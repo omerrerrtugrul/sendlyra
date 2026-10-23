@@ -121,9 +121,10 @@ class _IncomingRequestDialogState extends State<IncomingRequestDialog> {
         FilledButton(
           onPressed: () {
             if (_trust) {
+              // Güven kaydı her zaman doğrulanmış parmak izine bağlanır.
               context
                   .read<SettingsService>()
-                  .setTrusted(widget.request.peer.id, true);
+                  .setTrusted(widget.request.peer.fingerprint, true);
             }
             widget.request.accept();
             Navigator.of(context).pop();

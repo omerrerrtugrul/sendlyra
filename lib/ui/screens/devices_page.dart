@@ -55,8 +55,8 @@ class _DevicesPageState extends State<DevicesPage> {
       for (final d in devices)
         DeviceChoice(
           id: d.id,
-          name: settings.isFavorite(d.id)
-              ? '${settings.favoriteName(d.id) ?? d.name} · ${d.name}'
+          name: settings.isFavorite(d.fingerprint)
+              ? '${settings.favoriteName(d.fingerprint) ?? d.name} · ${d.name}'
               : d.name,
           subtitle: '${d.address}:${d.port}',
         ),
@@ -332,7 +332,8 @@ class _DevicesPageState extends State<DevicesPage> {
     final s = AppStrings.of(context);
     final settings = context.read<SettingsService>();
     final controller =
-        TextEditingController(text: settings.favoriteName(device.id) ?? device.name);
+        TextEditingController(
+            text: settings.favoriteName(device.fingerprint) ?? device.name);
     final result = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -351,7 +352,7 @@ class _DevicesPageState extends State<DevicesPage> {
       ),
     );
     if (result != null && result.trim().isNotEmpty) {
-      await settings.setFavorite(device.id, true, name: result);
+      await settings.setFavorite(device.fingerprint, true, name: result);
     }
   }
 
@@ -367,11 +368,11 @@ class _DevicesPageState extends State<DevicesPage> {
     final devices = transfer.devices;
     final favorites = [
       for (final d in devices)
-        if (settings.isFavorite(d.id)) d,
+        if (settings.isFavorite(d.fingerprint)) d,
     ];
     final others = [
       for (final d in devices)
-        if (!settings.isFavorite(d.id)) d,
+        if (!settings.isFavorite(d.fingerprint)) d,
     ];
 
     return DropTarget(
@@ -496,10 +497,11 @@ class _DevicesPageState extends State<DevicesPage> {
                       padding: const EdgeInsets.only(bottom: 10),
                       child: DeviceTile(
                         device: device,
-                        displayName: settings.favoriteName(device.id),
+                        displayName:
+                            settings.favoriteName(device.fingerprint),
                         isFavorite: true,
                         onToggleFavorite: () =>
-                            settings.setFavorite(device.id, false),
+                            settings.setFavorite(device.fingerprint, false),
                         onRenameFavorite: () => _askFavoriteName(device),
                         onSendFiles: () => _startSendFlow(),
                         onSendText: () => _sendTextToDevice(device),
@@ -515,7 +517,7 @@ class _DevicesPageState extends State<DevicesPage> {
                       device: device,
                       isFavorite: false,
                       onToggleFavorite: () async {
-                        await settings.setFavorite(device.id, true,
+                        await settings.setFavorite(device.fingerprint, true,
                             name: device.name);
                         if (mounted) await _askFavoriteName(device);
                       },
@@ -697,7 +699,7 @@ class _HeroDeviceCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${s.t('myDevice')} · ${s.t('fingerprint')}: $fingerprint',
+                  '${s.t('myDevice')} · ${s.t('fingerprint')}: ${fingerprintShort(fingerprint)}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.white.withValues(alpha: 0.85),
                       ),

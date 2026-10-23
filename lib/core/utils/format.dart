@@ -33,6 +33,10 @@ String timeAgo(DateTime time) {
   return '${diff.inDays} gün önce';
 }
 
+/// Parmak izinin kısa gösterimi (listeler için); tam iz diyaloglarda görünür.
+String fingerprintShort(String fingerprint, {int len = 16}) =>
+    fingerprint.length > len ? fingerprint.substring(0, len) : fingerprint;
+
 /// Dosyayı/klasörü sistem görüntüleyicisiyle açar (masaüstü).
 Future<bool> openInFileExplorer(String path) async {
   try {

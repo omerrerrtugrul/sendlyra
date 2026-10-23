@@ -246,19 +246,19 @@ class SettingsPage extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.verified_rounded),
             title: Text(s.t('trustedDevices')),
-            subtitle: settings.trustedIds.isEmpty
+            subtitle: settings.trustedFingerprints.isEmpty
                 ? Text(s.t('trustedEmpty'))
                 : Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      for (final id in settings.trustedIds)
+                      for (final fp in settings.trustedFingerprints)
                         Chip(
                           label: Text(
-                            _deviceName(transfer, id),
+                            _deviceName(transfer, fp),
                             style: Theme.of(context).textTheme.labelMedium,
                           ),
-                          onDeleted: () => settings.setTrusted(id, false),
+                          onDeleted: () => settings.setTrusted(fp, false),
                         ),
                     ],
                   ),
@@ -374,11 +374,14 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  String _deviceName(TransferService transfer, String id) {
+  /// Parmak izinden okunabilir cihaz adı; bulunamazsa izin kısaltması.
+  String _deviceName(TransferService transfer, String fingerprint) {
     for (final d in transfer.devices) {
-      if (d.id == id) return d.name;
+      if (d.fingerprint == fingerprint) return d.name;
     }
-    return id.length > 12 ? '${id.substring(0, 12)}…' : id;
+    return fingerprint.length > 12
+        ? '${fingerprint.substring(0, 12)}…'
+        : fingerprint;
   }
 }
 

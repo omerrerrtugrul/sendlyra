@@ -75,6 +75,15 @@ class LyraChannel {
         throw const LyraProtocolException('hello zaman aşımı');
       });
 
+      // K-1: parmak izi, açık anahtarın tam SHA-256 özetiyle birebir
+      // doğrulanır. Beyan edilen `fp` ile gerçek anahtar uyuşmazsa
+      // bağlantı (aktif MITM girişimi dahil) reddedilir.
+      final expectedFp = await LyraCryptoIdentity.fingerprintOf(peer.publicKey);
+      if (peer.fingerprint != expectedFp) {
+        throw const LyraProtocolException(
+            'parmak izi doğrulaması başarısız: beyan edilen iz anahtarla uyuşmuyor');
+      }
+
       final keys = await deriveSessionKeys(
         myKeyPair: keyPair,
         theirPublicKey: peer.publicKey,

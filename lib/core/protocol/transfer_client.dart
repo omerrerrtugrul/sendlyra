@@ -25,6 +25,7 @@ class LyraTransferClient {
     String? text,
     String? pin,
     void Function()? onChanged,
+    Future<String?> Function(HelloInfo peer)? onHandshake,
   }) async {
     final socket = await Socket.connect(
       target.address,
@@ -34,13 +35,24 @@ class LyraTransferClient {
     final channel = LyraChannel(socket, isClient: true);
     final queue = LyraEventQueue(channel.events);
     var aborted = false;
+    final abortSignal = Completer<void>();
 
     final router = ControlRouter(queue, onUnhandled: (type, data) {
-      if (type == MsgType.cancel || type == MsgType.error) {
+      if (type == MsgType.cancel) {
         aborted = true;
+        if (!abortSignal.isCompleted) abortSignal.complete();
         if (!job.isFinished) {
           job.state = JobState.cancelled;
           job.error = data['reason'] as String? ?? 'karşı taraf iptal etti';
+          job.finishedAt = DateTime.now();
+          onChanged?.call();
+        }
+      } else if (type == MsgType.error) {
+        aborted = true;
+        if (!abortSignal.isCompleted) abortSignal.complete();
+        if (!job.isFinished) {
+          job.state = JobState.failed;
+          job.error = data['reason'] as String? ?? 'karşı taraf hatası';
           job.finishedAt = DateTime.now();
           onChanged?.call();
         }
@@ -48,7 +60,12 @@ class LyraTransferClient {
     });
 
     try {
-      await channel.handshake(localInfo, keyPair: keyPair);
+      final peer = await channel.handshake(localInfo, keyPair: keyPair);
+      // Ek kimlik kontrolü (TOFU / bilinen parmak izi karşılaştırması).
+      final handshakeError = await onHandshake?.call(peer);
+      if (handshakeError != null) {
+        throw LyraProtocolException(handshakeError);
+      }
 
       // 1) Kimlik doğrulama (PIN)
       final authWait = router.waitFor(MsgType.authResult,
@@ -110,6 +127,18 @@ class LyraTransferClient {
           resume['$k'] = (v as num?)?.toInt() ?? 0;
         });
       }
+      // Sunucunun bildirdiği nihai adlar (çakışma yönetimi).
+      final namesRaw = decision['names'];
+      if (namesRaw is Map) {
+        namesRaw.forEach((k, v) {
+          if (v is! String) return;
+          final ft = job.files.cast<FileTransfer?>().firstWhere(
+                (f) => f?.id == k,
+                orElse: () => null,
+              );
+          if (ft != null) ft.relPath = v;
+        });
+      }
 
       job.state = JobState.transferring;
       onChanged?.call();
@@ -127,8 +156,23 @@ class LyraTransferClient {
 
       if (aborted) return;
 
-      // 5) Kapanış
+      // 5) Kapanış — alıcının onayını beklemeden başarı ilan edilmez (Y-11).
       channel.sendControl({'t': MsgType.done, 'job': job.id});
+      final acked = await Future.any<bool>([
+        router
+            .waitFor(MsgType.done, timeout: LyraProtocol.approvalTimeout)
+            .then((_) => true)
+            .catchError((_) => false),
+        abortSignal.future.then((_) => false),
+      ]);
+      if (aborted) return;
+      if (!acked) {
+        job.state = JobState.failed;
+        job.error = 'karşı taraftan onay alınamadı';
+        job.finishedAt = DateTime.now();
+        onChanged?.call();
+        return;
+      }
       job.state = JobState.completed;
       job.finishedAt = DateTime.now();
       onChanged?.call();
@@ -160,8 +204,18 @@ class LyraTransferClient {
     final hasher = sha256.startChunkedConversion(sink);
     try {
       if (offset > 0) {
-        await raf.setPosition(offset);
-        // Devam ettirmede hash, kısmi dosya üzerinden hesaplanmaz.
+        // Y-7: resume'da atlanan baş kısım da hash zincirine katılır;
+        // gönderilen öz, dosyanın tamamını kapsar.
+        var remaining = offset;
+        while (remaining > 0) {
+          final n = remaining > LyraProtocol.chunkSize
+              ? LyraProtocol.chunkSize
+              : remaining;
+          final buf = await raf.read(n);
+          if (buf.isEmpty) break;
+          hasher.add(buf);
+          remaining -= buf.length;
+        }
         ft.done = offset;
         job.transferred += offset;
         onChanged?.call();
@@ -187,7 +241,7 @@ class LyraTransferClient {
         't': MsgType.fileEnd,
         'job': job.id,
         'file': fileId,
-        if (offset == 0) 'sha256': sink.value,
+        'sha256': sink.value,
       });
       ft.completed = true;
       onChanged?.call();

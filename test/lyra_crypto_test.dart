@@ -93,7 +93,34 @@ void main() {
       expect(restoredPk, publicKey);
 
       final fp = await LyraCryptoIdentity.fingerprintOf(publicKey);
-      expect(fp.length, 16);
+      // Tam SHA-256 özeti: 64 hex karakter.
+      expect(fp.length, 64);
+      expect(RegExp(r'^[0-9a-f]{64}$').hasMatch(fp), isTrue);
+    });
+
+    test('parmak izi açık anahtarla birebir doğrulanır', () async {
+      final keyPair = await LyraCryptoIdentity.generateKeyPair();
+      final publicKey = (await keyPair.extractPublicKey()).bytes;
+      final fp = await LyraCryptoIdentity.fingerprintOf(publicKey);
+
+      // Beyan edilen iz ile gerçek anahtar uyuşmuyorsa reddedilir.
+      final spoofed = '${fp.substring(0, 63)}${fp.endsWith('0') ? '1' : '0'}';
+      expect(spoofed == fp, isFalse);
+    });
+  });
+
+  group('sabit zamanlı karşılaştırma', () {
+    test('eşit değerler eşit bulunur', () {
+      expect(LyraCryptoIdentity.constantTimeEquals('1234', '1234'), isTrue);
+      expect(LyraCryptoIdentity.constantTimeEquals('', ''), isTrue);
+    });
+
+    test('farklı uzunluk ve içerik eşit bulunmaz', () {
+      expect(
+          LyraCryptoIdentity.constantTimeEquals('1234', '12345'), isFalse);
+      expect(
+          LyraCryptoIdentity.constantTimeEquals('1234', '1235'), isFalse);
+      expect(LyraCryptoIdentity.constantTimeEquals('abc', ''), isFalse);
     });
   });
 }

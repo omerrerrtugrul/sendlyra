@@ -71,8 +71,8 @@ class DeviceTile extends StatelessWidget {
         ),
         subtitle: Text(
           isFavorite
-              ? '${device.name} · ${device.fingerprint}'
-              : '${device.fingerprint}  ·  ${s.t('lastSeen')}: ${timeAgo(device.lastSeen)}',
+              ? '${device.name} · ${fingerprintShort(device.fingerprint)}'
+              : '${fingerprintShort(device.fingerprint)}  ·  ${s.t('lastSeen')}: ${timeAgo(device.lastSeen)}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),

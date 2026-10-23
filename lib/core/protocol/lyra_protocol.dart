@@ -9,7 +9,11 @@ abstract final class LyraProtocol {
   static const int discoveryPort = 47801;
 
   /// Keşif multicast grubu.
-  static const String multicastGroup = '239.11.77.1';
+  ///
+  /// 224.0.0.0/24 altındaki admin-yerel aralık, tüm yaygın platformlarda
+  /// (özellikle Android) sorunsuz kabul edilir; daha yüksek grup adresleri
+  /// bazı cihazlarda sessizce reddedilebilir.
+  static const String multicastGroup = '224.0.0.167';
 
   /// Transfer (TCP) portu için varsayılan değer.
   static const int defaultTransferPort = 47802;

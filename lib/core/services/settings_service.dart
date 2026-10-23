@@ -10,9 +10,10 @@ class SettingsService extends ChangeNotifier {
   static const _kAccent = 'settings.accent';
   static const _kRequireApproval = 'settings.requireApproval';
   static const _kPin = 'settings.pin';
-  static const _kTrusted = 'settings.trusted';
+  static const _kTrusted = 'settings.trustedFps';
   static const _kQuickSave = 'settings.quickSave';
   static const _kFavorites = 'settings.favorites';
+  static const _kKnownPeers = 'settings.knownPeers';
   static const _kTransferPort = 'settings.transferPort';
   static const _kDiscoveryOn = 'settings.discoveryOn';
   static const _kLocale = 'settings.locale';
@@ -27,8 +28,18 @@ class SettingsService extends ChangeNotifier {
   /// 'favorites' = yalnızca favorilerden otomatik kabul.
   late String quickSaveMode;
   late String? pin;
-  late List<String> trustedIds;
+
+  /// Güvenilir cihazlar — her zaman **doğrulanmış parmak izine** bağlıdır;
+  /// karşı tarafın beyan ettiği kimliğe değil (taklit engeli).
+  late List<String> trustedFingerprints;
+
+  /// Favoriler — anahtar: parmak izi, değer: özel ad.
   late Map<String, String> favoriteNames;
+
+  /// TOFU: cihaz kimliği → ilk karşılaşımda görülen parmak izi.
+  /// Sonraki bağlantıda iz değişirse bağlantı reddedilir.
+  late Map<String, String> knownPeers;
+
   late int transferPort;
   late bool discoveryOn;
   late String localeCode;
@@ -42,8 +53,9 @@ class SettingsService extends ChangeNotifier {
     quickSaveMode = prefs.getString(_kQuickSave) ??
         (requireApproval ? 'off' : 'all');
     pin = prefs.getString(_kPin);
-    trustedIds = prefs.getStringList(_kTrusted) ?? [];
+    trustedFingerprints = prefs.getStringList(_kTrusted) ?? [];
     favoriteNames = _decodeFavorites(prefs.getString(_kFavorites));
+    knownPeers = _decodeFavorites(prefs.getString(_kKnownPeers));
     transferPort = prefs.getInt(_kTransferPort) ?? 47802;
     discoveryOn = prefs.getBool(_kDiscoveryOn) ?? true;
     localeCode = prefs.getString(_kLocale) ?? 'tr';
@@ -52,12 +64,13 @@ class SettingsService extends ChangeNotifier {
   bool get hasPin => pin != null && pin!.isNotEmpty;
 
   /// Hızlı kaydetme kipi: gelen istekler otomatik kabul edilir mi?
-  bool autoAcceptFrom(String peerId) {
+  /// Karar her zaman doğrulanmış parmak izi üzerinden verilir.
+  bool autoAcceptFrom(String fingerprint) {
     switch (quickSaveMode) {
       case 'all':
         return true;
       case 'favorites':
-        return favoriteNames.containsKey(peerId);
+        return favoriteNames.containsKey(fingerprint);
       default:
         return false;
     }
@@ -72,25 +85,27 @@ class SettingsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool isFavorite(String deviceId) => favoriteNames.containsKey(deviceId);
+  bool isFavorite(String fingerprint) =>
+      favoriteNames.containsKey(fingerprint);
 
-  String? favoriteName(String deviceId) => favoriteNames[deviceId];
+  String? favoriteName(String fingerprint) => favoriteNames[fingerprint];
 
-  Future<void> setFavorite(String deviceId, bool favorite,
+  Future<void> setFavorite(String fingerprint, bool favorite,
       {String? name}) async {
     if (favorite) {
-      favoriteNames[deviceId] =
+      favoriteNames[fingerprint] =
           (name != null && name.trim().isNotEmpty) ? name.trim() : 'Favori';
     } else {
-      favoriteNames.remove(deviceId);
+      favoriteNames.remove(fingerprint);
     }
     await _persistFavorites();
     notifyListeners();
   }
 
-  Future<void> renameFavorite(String deviceId, String name) async {
-    if (!favoriteNames.containsKey(deviceId)) return;
-    favoriteNames[deviceId] = name.trim().isEmpty ? 'Favori' : name.trim();
+  Future<void> renameFavorite(String fingerprint, String name) async {
+    if (!favoriteNames.containsKey(fingerprint)) return;
+    favoriteNames[fingerprint] =
+        name.trim().isEmpty ? 'Favori' : name.trim();
     await _persistFavorites();
     notifyListeners();
   }
@@ -144,15 +159,32 @@ class SettingsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool isTrusted(String deviceId) => trustedIds.contains(deviceId);
+  /// TOFU: bilinen parmak izi (cihaz kimliğine göre).
+  String? knownFingerprintFor(String deviceId) => knownPeers[deviceId];
 
-  Future<void> setTrusted(String deviceId, bool trusted) async {
-    if (trusted && !trustedIds.contains(deviceId)) {
-      trustedIds.add(deviceId);
+  /// İlk karşılaşımda parmak izini kaydeder.
+  Future<void> rememberPeer(String deviceId, String fingerprint) async {
+    if (knownPeers[deviceId] == fingerprint) return;
+    knownPeers[deviceId] = fingerprint;
+    await prefs.setString(_kKnownPeers, jsonEncode(knownPeers));
+  }
+
+  /// Parmak izi bilinen kayıttan farklı mı? (taklit / MITM uyarısı)
+  bool fingerprintChanged(String deviceId, String fingerprint) {
+    final known = knownPeers[deviceId];
+    return known != null && known.isNotEmpty && known != fingerprint;
+  }
+
+  bool isTrusted(String fingerprint) =>
+      trustedFingerprints.contains(fingerprint);
+
+  Future<void> setTrusted(String fingerprint, bool trusted) async {
+    if (trusted && !trustedFingerprints.contains(fingerprint)) {
+      trustedFingerprints.add(fingerprint);
     } else if (!trusted) {
-      trustedIds.remove(deviceId);
+      trustedFingerprints.remove(fingerprint);
     }
-    await prefs.setStringList(_kTrusted, trustedIds);
+    await prefs.setStringList(_kTrusted, trustedFingerprints);
     notifyListeners();
   }
 

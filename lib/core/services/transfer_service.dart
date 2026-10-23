@@ -9,6 +9,7 @@ import '../models/transfer_job.dart';
 import '../protocol/lyra_message.dart';
 import '../protocol/transfer_client.dart';
 import '../protocol/transfer_server.dart';
+import '../utils/multicast_lock.dart';
 import 'discovery_service.dart';
 import 'history_service.dart';
 import 'identity_service.dart';
@@ -50,6 +51,17 @@ class TransferService extends ChangeNotifier {
   LyraTransferServer? _server;
   bool _started = false;
 
+  /// Y-9: ilerleme bildirimleri 300 ms'de bir tazelenir; her veri
+  /// karesinde tam yeniden çizim tetiklenmez.
+  Timer? _notifyTimer;
+  bool _notifyPending = false;
+
+  /// Y-8: canlı ayar uygulaması için son bilinen değerler.
+  int? _lastPort;
+  String? _lastSaveDir;
+  bool? _lastDiscoveryOn;
+  Timer? _settingsDebounce;
+
   final List<TransferJob> jobs = [];
   final _incomingController = StreamController<IncomingRequest>.broadcast();
 
@@ -77,6 +89,8 @@ class TransferService extends ChangeNotifier {
   Future<void> start() async {
     if (_started) return;
     _started = true;
+    settings.removeListener(_onSettingsChanged);
+    settings.addListener(_onSettingsChanged);
 
     _discovery = DiscoveryService(
       identity: () => BeaconIdentity(
@@ -90,8 +104,10 @@ class TransferService extends ChangeNotifier {
       ),
     );
     if (settings.discoveryOn) {
+      await MulticastLock.acquire();
       await _discovery?.start();
     }
+    _lastDiscoveryOn = settings.discoveryOn;
 
     await _startServer();
   }
@@ -105,6 +121,7 @@ class TransferService extends ChangeNotifier {
       saveDir: saveDir,
       policy: ServerPolicy(
         pin: () => settings.pin,
+        onHandshake: _verifyPeer,
         onOffer: (offer, peer, {required pinVerified}) async {
           final request = IncomingRequest(
             offer: offer,
@@ -112,11 +129,12 @@ class TransferService extends ChangeNotifier {
             pinVerified: pinVerified,
           );
           // Hızlı kaydetme kipleri: kullanıcı onayı olmadan kabul.
-          if (pinVerified && settings.autoAcceptFrom(peer.id)) {
+          // Karar her zaman doğrulanmış parmak izi üzerinden verilir.
+          if (pinVerified && settings.autoAcceptFrom(peer.fingerprint)) {
             request.accept();
             return request.decision.future;
           }
-          if (settings.isTrusted(peer.id) && pinVerified) {
+          if (settings.isTrusted(peer.fingerprint) && pinVerified) {
             request.accept();
             return request.decision.future;
           }
@@ -133,6 +151,21 @@ class TransferService extends ChangeNotifier {
     );
     await server.start();
     _server = server;
+    _lastPort = settings.transferPort;
+    _lastSaveDir = saveDir;
+  }
+
+  /// El sıkışma sonrası ek kimlik kontrolü (TOFU).
+  ///
+  /// Parmak izi kanal katmanında `sha256(pk)` ile birebir doğrulanır;
+  /// burada da ilk karşılaşımda kaydedilen iz ile karşılaştırılır.
+  /// Değişmişse bağlantı reddedilir (taklit / MITM uyarısı).
+  Future<String?> _verifyPeer(HelloInfo peer) async {
+    if (settings.fingerprintChanged(peer.id, peer.fingerprint)) {
+      return 'cihazın parmak izi değişti — bağlantı reddedildi';
+    }
+    await settings.rememberPeer(peer.id, peer.fingerprint);
+    return null;
   }
 
   /// Varsayılan indirme klasörünü çözer; ayarlardaki değer önceliklidir.
@@ -159,7 +192,51 @@ class TransferService extends ChangeNotifier {
 
   void _onJobUpdated(TransferJob job) {
     _sampleSpeed(job);
+    _scheduleNotify();
+  }
+
+  /// Y-9: bildirimleri en fazla 300 ms'de bir tazeler.
+  void _scheduleNotify() {
+    if (_notifyTimer != null) {
+      _notifyPending = true;
+      return;
+    }
     notifyListeners();
+    _notifyTimer = Timer(const Duration(milliseconds: 300), () {
+      _notifyTimer = null;
+      if (_notifyPending) {
+        _notifyPending = false;
+        _scheduleNotify();
+      }
+    });
+  }
+
+  /// Y-8: ayar değişiklikleri servislere otomatik uygulanır.
+  void _onSettingsChanged() {
+    _settingsDebounce?.cancel();
+    _settingsDebounce = Timer(const Duration(milliseconds: 400), () async {
+      if (!_started) return;
+      final portChanged = _lastPort != settings.transferPort;
+      final dirChanged = _lastSaveDir != settings.saveDir;
+      if (portChanged || dirChanged) {
+        _lastPort = settings.transferPort;
+        _lastSaveDir = settings.saveDir;
+        await _server?.stop();
+        await _startServer();
+      }
+      final discoveryChanged = _lastDiscoveryOn != settings.discoveryOn;
+      if (discoveryChanged) {
+        _lastDiscoveryOn = settings.discoveryOn;
+        if (settings.discoveryOn) {
+          await MulticastLock.acquire();
+          await _discovery?.start();
+        } else {
+          await _discovery?.stop();
+          await MulticastLock.release();
+        }
+      }
+      notifyListeners();
+    });
   }
 
   /// Hız tahmini: 500 ms'lik pencerede üstel yumuşatma.
@@ -231,6 +308,7 @@ class TransferService extends ChangeNotifier {
         text: text,
         pin: pin,
         onChanged: () => _onJobUpdated(job),
+        onHandshake: _verifyPeer,
       );
     } catch (_) {
       // Durum job nesnesine işlendi.
@@ -279,9 +357,13 @@ class TransferService extends ChangeNotifier {
 
   @override
   void dispose() {
+    settings.removeListener(_onSettingsChanged);
+    _settingsDebounce?.cancel();
+    _notifyTimer?.cancel();
     _server?.stop();
     _discovery?.dispose();
     _incomingController.close();
+    MulticastLock.release();
     super.dispose();
   }
 }

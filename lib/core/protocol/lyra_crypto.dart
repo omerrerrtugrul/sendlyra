@@ -92,13 +92,31 @@ class LyraCryptoIdentity {
   static Future<SimpleKeyPair> generateKeyPair() =>
       X25519().newKeyPair();
 
-  /// Açık anahtarın SHA-256 parmak izinin ilk 8 baytı (hex).
+  /// Açık anahtarın tam SHA-256 parmak izi (64 hex karakter).
+  ///
+  /// Kısaltılmış parmak izi taklit saldırılarına yeterince dirençli değildir;
+  /// bu nedenle her zaman tam özet kullanılır.
   static Future<String> fingerprintOf(List<int> publicKey) async {
     final digest = crypto.sha256.convert(publicKey);
     return digest.bytes
-        .take(8)
         .map((b) => b.toRadixString(16).padLeft(2, '0'))
         .join();
+  }
+
+  /// Sabit zamanlı (timing-safe) dize karşılaştırması.
+  ///
+  /// PIN gibi gizli değerlerde zamanlama saldırısını engeller.
+  static bool constantTimeEquals(String a, String b) {
+    final bytesA = utf8.encode(a);
+    final bytesB = utf8.encode(b);
+    var diff = bytesA.length ^ bytesB.length;
+    final maxLen = bytesA.length > bytesB.length ? bytesA.length : bytesB.length;
+    for (var i = 0; i < maxLen; i++) {
+      final x = i < bytesA.length ? bytesA[i] : 0;
+      final y = i < bytesB.length ? bytesB[i] : 0;
+      diff |= x ^ y;
+    }
+    return diff == 0;
   }
 
   /// Özel anahtar baytlarını (base64) saklanabilir biçime çevirir.

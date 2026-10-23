@@ -65,14 +65,21 @@ class HelloInfo {
     if (json['id'] is! String || pk is! String) {
       throw const LyraProtocolException('hello paketi bozuk');
     }
+    List<int> publicKey;
+    try {
+      publicKey = base64Decode(pk);
+    } catch (_) {
+      throw const LyraProtocolException('hello paketi: geçersiz açık anahtar');
+    }
+    final fp = json['fp'];
     return HelloInfo(
       version: (json['v'] as num?)?.toInt() ?? 0,
       id: json['id'] as String,
-      name: (json['name'] as String?) ?? 'unknown',
-      os: (json['os'] as String?) ?? 'unknown',
-      deviceType: (json['dev'] as String?) ?? 'unknown',
-      publicKey: base64Decode(pk),
-      fingerprint: (json['fp'] as String?) ?? '',
+      name: (json['name'] is String) ? json['name'] as String : 'unknown',
+      os: (json['os'] is String) ? json['os'] as String : 'unknown',
+      deviceType: (json['dev'] is String) ? json['dev'] as String : 'unknown',
+      publicKey: publicKey,
+      fingerprint: (fp is String) ? fp : '',
     );
   }
 
