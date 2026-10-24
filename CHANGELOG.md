@@ -4,6 +4,22 @@ Bu dosya SendLyra sürümleri arasındaki önemli değişiklikleri kaydeder.
 
 ## [Unreleased]
 
+### ✨ Faz 3 — Deneyim Tamamlama (E-02 / E-03 / E-04, bu sürüm)
+- **E-02 Panodan gönderim:** cihaz menüsünden "Panodan gönder" — pano metni
+  önizleme onayıyla doğrudan hedefe yollanır; boş pano uyarısı.
+- **E-03 Bildirimler:** transfer tamamlandı/başarısız bildirimleri
+  (`flutter_local_notifications`, Android 8+ kanalı, ses + titreşim, Android 13+
+  izin akışı). Bildirim altyapısı yoksa transferler sessizce sürer.
+- **E-04 Meşgul kuyruklaması:** meşgul cihaza gönderim artık kuyruğa düşer
+  (`JobState.queued`); cihaz uygun olunca ya da `err.busy` reddinden sonra
+  otomatik yeniden denenir. Kuyruktaki iş iptal edilebilir.
+- 🐞 **Kritik protokol düzeltmesi:** `LyraChannel._pump` yarım kare tamponda
+  beklerken kendini mikro-görev zinciriyle sürekli yeniden çağırıyordu — bu,
+  olay döngüsünü boğup timer'ları ve soket verisini askıya alıyordu (gerçek
+  ağda paketler parça parça geldiğinde uygulama donması). Artık yalnızca
+  ilerleme varsa yeniden planlanır; kalan baytlar `feed` ile gelince sürer.
+  Ayrıca E-04'ün uçtan uca (loopback) test paketi eklendi.
+
 ### 🔒 Güvenlik — Faz 1 (kritik yamalar, 24.10.2026)
 - **K-1** El sıkışmada `fp == sha256(pk)` zorunlu doğrulama; tam SHA-256 parmak
   izi + TOFU (iz değişirse bağlantı reddi).

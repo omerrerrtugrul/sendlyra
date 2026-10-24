@@ -19,6 +19,8 @@ class TransferCard extends StatelessWidget {
 
   String _stateLabel(AppStrings s) {
     switch (job.state) {
+      case JobState.queued:
+        return s.t('stateQueued');
       case JobState.connecting:
         return s.t('stateConnecting');
       case JobState.waitingApproval:

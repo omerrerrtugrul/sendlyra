@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/models/device.dart';
@@ -561,6 +562,7 @@ class _DevicesPageState extends State<DevicesPage> {
                         onRenameFavorite: () => _askFavoriteName(device),
                         onSendFiles: () => _startSendFlow(),
                         onSendText: () => _sendTextToDevice(device),
+                        onSendClipboard: () => _sendClipboardToDevice(device),
                         onInfo: () => _showDeviceInfo(device),
                       ),
                     ),
@@ -579,6 +581,7 @@ class _DevicesPageState extends State<DevicesPage> {
                       },
                       onSendFiles: () => _startSendFlow(),
                       onSendText: () => _sendTextToDevice(device),
+                      onSendClipboard: () => _sendClipboardToDevice(device),
                       onInfo: () => _showDeviceInfo(device),
                     ),
                   ),
@@ -641,6 +644,58 @@ class _DevicesPageState extends State<DevicesPage> {
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(
       SnackBar(content: Text('${device.name}: ${s.t('sendText')}')),
+    );
+  }
+
+  /// E-02: panodaki metni seçili cihaza gönderir.
+  ///
+  /// Pano boşsa uyarı gösterir; doluysa kısa bir önizleme onayı
+  /// sonrası gönderilir (yanlışlıkla gönderimi önler).
+  Future<void> _sendClipboardToDevice(LyraDevice device) async {
+    final s = AppStrings.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = normalizeClipboardText(data?.text);
+    if (!mounted) return;
+    if (text == null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(s.t('clipboardEmpty'))),
+      );
+      return;
+    }
+
+    final preview = text.length > 200 ? '${text.substring(0, 200)}…' : text;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(s.t('clipboardTitle')),
+        content: Text(preview),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(s.t('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(s.t('sendAction')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final transfer = context.read<TransferService>();
+    final settings = context.read<SettingsService>();
+    await transfer.send(
+      target: device,
+      files: const [],
+      text: text,
+      pin: settings.pin,
+    );
+    if (!mounted) return;
+    widget.onGoToTransfers?.call();
+    messenger.showSnackBar(
+      SnackBar(content: Text('${device.name}: ${s.t('sendClipboard')}')),
     );
   }
 }

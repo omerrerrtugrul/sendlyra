@@ -70,6 +70,20 @@ tema/dil/port ayarları, QR, sunucu yeniden başlatma.
 > Yeni eklenenler: **QR tarama yok** (yeni madde #16), LICENSE/CHANGELOG
 > (CHANGELOG eklendi; LICENSE için lisans kararı bekleniyor).
 
+## ✅ Tamamlandı (25 Ekim — Faz 3: deneyim tamamlama)
+- 📋 **E-02 Panodan gönderim** — cihaz menüsünden pano metni gönderimi
+  (önizleme onayı + boş pano uyarısı)
+- 🔔 **E-03 Bildirimler** — transfer sonucu bildirimleri (yerel bildirim
+  kanalı, ses + titreşim, izin akışı; altyapı yoksa sessiz geçiş)
+- ⏳ **E-04 Meşgul kuyruklaması** — meşgul hedefe gönderim kuyruğa düşer,
+  cihaz uygun olunca (`err.busy` reddi dahil) otomatik denenir; iptal edilebilir
+- 🐞 **Protokol düzeltmesi:** yarım kare tamponunda mikro-görev döngüsü
+  (olay döngüsü boğulması → donma) — `LyraChannel._pump` ilerleme yoksa
+  kendini yeniden çağırmaz. Bu, gerçek ağ senaryoları için kritik bir
+  kararlılık düzeltmesidir.
+- 🧪 Doğrulama: **78/78 test** (6 yeni: kuyruk, `err.busy` → yeniden deneme,
+  bildirim içeriği, pano normalizasyonu) + `flutter analyze` temiz.
+
 ### Büyük özellikler
 | # | Özellik | Not |
 |---|---|---|
@@ -80,9 +94,9 @@ tema/dil/port ayarları, QR, sunucu yeniden başlatma.
 ### Orta özellikler
 | # | Özellik |
 |---|---|
-| 5 | Panodan içerik gönderimi |
+| 5 | ✅ Panodan içerik gönderimi (metin) — tamamlandı (Faz 3, E-02) |
 | 6 | Mobil Share Intent + Android APK seçimi + galeriye kaydetme |
-| 7 | Bildirimler (tamamlandı uyarısı) |
+| 7 | ✅ Bildirimler (tamamlandı/başarısız + ses) — tamamlandı (Faz 3, E-03) |
 | 9 | IPv6 + IP aralığı taraması (yedek keşif) |
 | 16 | 📷 QR tarama (kamera ile bağlanma) + QR parmak izi karşılaştırmalı eşleşme (R-1) |
 

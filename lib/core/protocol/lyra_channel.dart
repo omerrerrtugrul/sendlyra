@@ -120,18 +120,26 @@ class LyraChannel {
   void _schedulePump() {
     if (_pumping || _closed) return;
     _pumping = true;
-    _pump().whenComplete(() {
+    _pump().then((progress) {
       _pumping = false;
-      if (_buffer.length > 0 && !_closed) _schedulePump();
+      // Yalnızca ilerleme varsa yeniden planla. Tamponda eksik bir kare
+      // varken tekrar tekrar çalışmak mikro-görev zinciri yaratır ve olay
+      // döngüsünü boğar (timer'lar / soket verisi hiç işlenmez — donma).
+      // Eksik karenin kalan baytları [feed] gelince yeniden planlanır.
+      if (progress && _buffer.length > 0 && !_closed) _schedulePump();
+    }, onError: (_) {
+      _pumping = false;
     });
   }
 
-  Future<void> _pump() async {
-    if (_awaitingEncrypt && !_encrypted) return;
+  /// Bir tur pompalar; en az bir tam satır/kare tüketildiyse `true` döner.
+  Future<bool> _pump() async {
+    if (_awaitingEncrypt && !_encrypted) return false;
     // Biriken tüm baytlar tek seferde alınır; işlenemeyen kuyruk
     // (tamamlanmamış satır/kare) geri eklenir — yalnızca kuyruk kopyalanır.
     final buf = _buffer.takeBytes();
     var offset = 0;
+    var progress = false;
     while (!_closed) {
       if (!_encrypted) {
         final idx = buf.indexOf(0x0A, offset);
@@ -145,11 +153,12 @@ class LyraChannel {
           if (json is Map<String, dynamic>) {
             final type = json['t'] as String?;
             _events.add(LyraEvent.control(type, json));
+            progress = true;
             if (type == 'hello') {
               // Hello'dan sonraki her bayt şifreli karedir.
               _awaitingEncrypt = true;
               if (offset < buf.length) _buffer.add(buf.sublist(offset));
-              return;
+              return true;
             }
           }
         } catch (_) {
@@ -164,11 +173,12 @@ class LyraChannel {
       ).getUint32(0);
       if (len == 0 || len > LyraProtocol.maxFrameSize) {
         fail(const LyraProtocolException('kare boyutu sınırı aşıldı'));
-        return;
+        return true;
       }
       if (buf.length - offset - 4 < len) break;
       final frame = buf.sublist(offset + 4, offset + 4 + len);
       offset += 4 + len;
+      progress = true;
 
       try {
         final plain = await _recvCipher!.open(frame);
@@ -184,18 +194,19 @@ class LyraChannel {
           // D-23: bilinmeyen düz metin tipi sessizce yutulmaz.
           fail(const LyraProtocolException(
               'bilinmeyen kare tipi — bağlantı kapatılıyor'));
-          return;
+          return true;
         }
       } catch (e) {
         fail(e is LyraProtocolException
             ? e
             : LyraProtocolException('kare çözülemedi: $e'));
-        return;
+        return true;
       }
     }
     if (offset < buf.length && !_closed) {
       _buffer.add(buf.sublist(offset));
     }
+    return progress;
   }
 
   /// Kontrol mesajı gönderir (şifreli, sıralı).

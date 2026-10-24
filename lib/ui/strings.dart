@@ -111,6 +111,7 @@ class AppStrings {
     'stateCompleted': 'Tamamlandı',
     'stateFailed': 'Başarısız',
     'stateCancelled': 'İptal edildi',
+    'stateQueued': 'Kuyrukta',
     'remaining': 'kalan',
 
     // Gelen teklif
@@ -171,6 +172,11 @@ class AppStrings {
             'onaylayın. Bu bir kereye mahsus bir bilgilendirmedir.',
     'files': 'dosya',
     'copied': 'Kopyalandı',
+
+    // E-02: panodan gönderim
+    'sendClipboard': 'Panodan gönder',
+    'clipboardTitle': 'Pano içeriği gönderilsin mi?',
+    'clipboardEmpty': 'Panoda metin yok',
 
     // Durumlar ve hata mesajları
     'busy': 'Meşgul',
@@ -261,6 +267,7 @@ class AppStrings {
     'stateCompleted': 'Completed',
     'stateFailed': 'Failed',
     'stateCancelled': 'Cancelled',
+    'stateQueued': 'Queued',
     'remaining': 'left',
 
     'incomingTitle': 'Incoming transfer',
@@ -318,6 +325,11 @@ class AppStrings {
             'devices. This notice is shown only once.',
     'files': 'files',
     'copied': 'Copied',
+
+    // E-02: send from clipboard
+    'sendClipboard': 'Send clipboard',
+    'clipboardTitle': 'Send clipboard content?',
+    'clipboardEmpty': 'No text in clipboard',
 
     'busy': 'Busy',
     'errPinRequired': 'Authentication required first',

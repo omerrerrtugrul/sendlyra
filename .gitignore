@@ -4,7 +4,10 @@
 build/
 .flutter-plugins
 .flutter-plugins-dependencies
-pubspec.lock
+
+# Yerel yardımcı/artefakt dosyaları
+.openclaw*/
+*.log
 
 # IDE
 .idea/

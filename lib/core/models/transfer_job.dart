@@ -5,6 +5,8 @@ enum JobDirection { send, receive }
 
 /// Transfer işinin durumu.
 enum JobState {
+  /// E-04: hedef meşgul — gönderim kuyrukta bekliyor.
+  queued,
   connecting,
   waitingApproval,
   transferring,

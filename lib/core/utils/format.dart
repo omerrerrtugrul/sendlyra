@@ -61,3 +61,11 @@ Future<bool> openInFileExplorer(String path) async {
   } catch (_) {}
   return false;
 }
+
+/// E-02: pano metnini gönderime hazırlar.
+///
+/// Boş/yalnızca boşluk içeren pano için `null` döner.
+String? normalizeClipboardText(String? raw) {
+  final t = raw?.trim() ?? '';
+  return t.isEmpty ? null : t;
+}

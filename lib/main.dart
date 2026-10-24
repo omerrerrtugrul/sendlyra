@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/services/history_service.dart';
 import 'core/services/identity_service.dart';
+import 'core/services/notification_service.dart';
 import 'core/services/secret_store.dart';
 import 'core/services/settings_service.dart';
 import 'core/services/transfer_service.dart';
@@ -18,10 +19,14 @@ Future<void> main() async {
     final settings = SettingsService(prefs, secrets: secrets);
     await settings.loadSecrets();
     final history = HistoryService(prefs);
+    // E-03: transfer sonucu bildirimleri.
+    final notifier =
+        LocalTransferNotifier(locale: () => settings.localeCode);
     final transfer = TransferService(
       identity: identity,
       settings: settings,
       history: history,
+      notifier: notifier,
     );
 
     String? startupError;

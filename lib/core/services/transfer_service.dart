@@ -13,7 +13,21 @@ import '../utils/multicast_lock.dart';
 import 'discovery_service.dart';
 import 'history_service.dart';
 import 'identity_service.dart';
+import 'notification_service.dart';
 import 'settings_service.dart';
+
+/// E-04: kuyrukta bekleyen bir gönderim.
+class _QueuedSend {
+  _QueuedSend(this.job, this.target, this.files, this.relPaths, this.text,
+      this.pin);
+
+  final TransferJob job;
+  final LyraDevice target;
+  final List<File> files;
+  final List<String> relPaths;
+  final String? text;
+  final String? pin;
+}
 
 /// Gelen bir teklifin UI'a bildirilmesi için bekleyen istek.
 class IncomingRequest {
@@ -65,11 +79,24 @@ class TransferService extends ChangeNotifier {
   final List<TransferJob> jobs = [];
   final _incomingController = StreamController<IncomingRequest>.broadcast();
 
+  /// E-03: transfer sonucu bildirimleri (null ise bildirim yok).
+  final TransferNotifier? notifier;
+
+  /// E-04: meşgul hedefler için bekleyen gönderimler.
+  final List<_QueuedSend> _queue = [];
+  Timer? _queueTimer;
+  StreamSubscription<void>? _discoverySub;
+
   TransferService({
     required this.identity,
     required this.settings,
     required this.history,
+    this.notifier,
   });
+
+  /// E-04: kuyrukta bekleyen iş sayısı (testler için).
+  @visibleForTesting
+  int get queueLength => _queue.length;
 
   /// UI'ın dinlemesi gereken gelen teklif akışı.
   Stream<IncomingRequest> get incomingRequests => _incomingController.stream;
@@ -89,6 +116,12 @@ class TransferService extends ChangeNotifier {
   Future<void> start() async {
     if (_started) return;
     _started = true;
+    // E-03: bildirim altyapısı; başarısız olsa bile uygulama çalışır.
+    try {
+      await notifier?.init();
+    } catch (_) {
+      // Bildirim yoksa transferler sessizce sürer.
+    }
     // R-2 (savunma): PIN güvenli kasadan yüklenmeden istek kabul edilmesin.
     await settings.loadSecrets();
     settings.removeListener(_onSettingsChanged);
@@ -106,6 +139,11 @@ class TransferService extends ChangeNotifier {
         busy: activeJobs.isNotEmpty,
       ),
     );
+    // E-04: cihaz meşguliyeti değişince kuyruk yeniden denenir.
+    await _discoverySub?.cancel();
+    _discoverySub = _discovery?.changes.listen((_) {
+      unawaited(pumpQueue());
+    });
     if (settings.discoveryOn) {
       await MulticastLock.acquire();
       await _discovery?.start();
@@ -275,12 +313,24 @@ class TransferService extends ChangeNotifier {
 
   void _onJobFinished(TransferJob job) {
     unawaited(history.add(job));
+    _notifyFinished(job);
     notifyListeners();
+  }
+
+  /// E-03: bildirim hatası asla transferi etkilemez.
+  void _notifyFinished(TransferJob job) {
+    try {
+      notifier?.notifyJobFinished(job);
+    } catch (_) {
+      // Yoksayılır.
+    }
   }
 
   /// Seçilen dosyaları hedef cihaza gönderir.
   ///
   /// [relPaths] klasör yapısını korur; her dosya için göreli yol içerir.
+  /// Hedef meşgulse iş (E-04) kuyruğa alınır ve cihaz uygun olunca
+  /// otomatik olarak gönderilir.
   Future<TransferJob> send({
     required LyraDevice target,
     required List<File> files,
@@ -307,8 +357,25 @@ class TransferService extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
     jobs.insert(0, job);
-    notifyListeners();
 
+    final queued = _QueuedSend(job, target, files, relPaths, text, pin);
+    if (target.busy) {
+      // E-04: meşgul cihaza gönderim doğrudan denenmez, kuyruğa düşer.
+      job.state = JobState.queued;
+      _queue.add(queued);
+      _scheduleQueuePump();
+      notifyListeners();
+      return job;
+    }
+
+    notifyListeners();
+    await _runSend(queued);
+    return job;
+  }
+
+  /// Kuyruktan gelen ya da yeni bir gönderimi gerçekten çalıştırır.
+  Future<void> _runSend(_QueuedSend s) async {
+    final job = s.job;
     final client = LyraTransferClient(
       localInfo: identity.hello(settings.transferPort),
       keyPair: identity.keyPair,
@@ -316,26 +383,81 @@ class TransferService extends ChangeNotifier {
 
     try {
       await client.send(
-        target: target,
+        target: s.target,
         job: job,
-        files: files,
-        relPaths: relPaths,
-        text: text,
-        pin: pin,
+        files: s.files,
+        relPaths: s.relPaths,
+        text: s.text,
+        pin: s.pin,
         onChanged: () => _onJobUpdated(job),
         onHandshake: _verifyPeer,
       );
     } catch (_) {
       // Durum job nesnesine işlendi.
     }
+
+    // E-04: alıcı "meşgul" dediyse iş kuyruğa geri alınır.
+    if (job.error == 'err.busy') {
+      _requeue(s);
+      return;
+    }
     unawaited(history.add(job));
+    _notifyFinished(job);
     notifyListeners();
-    return job;
+  }
+
+  /// E-04: işi kuyruğa geri alır (cihaz uygun olunca yeniden denenir).
+  void _requeue(_QueuedSend s) {
+    s.job.state = JobState.queued;
+    s.job.error = null;
+    s.job.finishedAt = null;
+    _queue.add(s);
+    _scheduleQueuePump();
+    notifyListeners();
+  }
+
+  /// E-04: kuyruk doluysa periyodik deneme zamanlayıcısını açar.
+  void _scheduleQueuePump() {
+    _queueTimer ??= Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => pumpQueue(),
+    );
+  }
+
+  /// E-04: kuyruktaki işleri dener.
+  ///
+  /// Cihaz durumu keşiften okunur; bilinmeyen cihaz "meşgul değil"
+  /// sayılır ve bağlantı denenir (başarısızsa iş hata ile biter).
+  Future<void> pumpQueue() async {
+    if (_queue.isEmpty) {
+      _queueTimer?.cancel();
+      _queueTimer = null;
+      return;
+    }
+    final ready = <_QueuedSend>[
+      for (final s in _queue)
+        if (!_isPeerBusy(s.target.id)) s,
+    ];
+    for (final s in ready) {
+      _queue.remove(s);
+    }
+    await Future.wait([for (final s in ready) _runSend(s)]);
+    if (_queue.isEmpty) {
+      _queueTimer?.cancel();
+      _queueTimer = null;
+    }
+  }
+
+  bool _isPeerBusy(String peerId) {
+    final device = _discovery?.devices[peerId];
+    return device?.busy ?? false;
   }
 
   /// Aktif bir işi iptal eder (yerel taraf).
   void cancelJob(TransferJob job) {
     if (job.isFinished) return;
+    // E-04: kuyruktaki iş de iptal edilebilir.
+    _queue.removeWhere((s) => s.job == job);
     job.state = JobState.cancelled;
     job.error = 'err.localCancel';
     job.finishedAt = DateTime.now();
@@ -375,6 +497,8 @@ class TransferService extends ChangeNotifier {
     settings.removeListener(_onSettingsChanged);
     _settingsDebounce?.cancel();
     _notifyTimer?.cancel();
+    _queueTimer?.cancel();
+    _discoverySub?.cancel();
     _server?.stop();
     _discovery?.dispose();
     _incomingController.close();

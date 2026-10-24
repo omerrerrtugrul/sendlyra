@@ -13,6 +13,7 @@ class DeviceTile extends StatelessWidget {
   final VoidCallback? onRenameFavorite;
   final VoidCallback? onSendFiles;
   final VoidCallback? onSendText;
+  final VoidCallback? onSendClipboard;
   final VoidCallback? onInfo;
 
   const DeviceTile({
@@ -24,6 +25,7 @@ class DeviceTile extends StatelessWidget {
     this.onRenameFavorite,
     this.onSendFiles,
     this.onSendText,
+    this.onSendClipboard,
     this.onInfo,
   });
 
@@ -107,16 +109,23 @@ class DeviceTile extends StatelessWidget {
               onPressed: onSendText,
               icon: const Icon(Icons.chat_bubble_outline_rounded),
             ),
-            if (onInfo != null)
+            if (onInfo != null || onSendClipboard != null)
               PopupMenuButton<String>(
                 onSelected: (v) {
                   if (v == 'info') onInfo?.call();
+                  if (v == 'clipboard') onSendClipboard?.call();
                 },
                 itemBuilder: (_) => [
-                  PopupMenuItem(
-                    value: 'info',
-                    child: Text(s.t('fingerprint')),
-                  ),
+                  if (onSendClipboard != null)
+                    PopupMenuItem(
+                      value: 'clipboard',
+                      child: Text(s.t('sendClipboard')),
+                    ),
+                  if (onInfo != null)
+                    PopupMenuItem(
+                      value: 'info',
+                      child: Text(s.t('fingerprint')),
+                    ),
                 ],
               ),
           ],
