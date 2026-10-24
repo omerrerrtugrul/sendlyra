@@ -164,6 +164,11 @@ class AppStrings {
     'ok': 'Tamam',
     'error': 'Hata',
     'startupError': 'Bazı servisler başlatılamadı',
+    'trustMigrationTitle': 'Güvenilir cihaz listeniz güncellendi',
+    'trustMigrationBody':
+        'Güvenilir cihazlar ve favoriler artık parmak izine göre saklanıyor. '
+            'Güvenliğiniz için önceki kayıtlar silindi — lütfen cihazları yeniden '
+            'onaylayın. Bu bir kereye mahsus bir bilgilendirmedir.',
     'files': 'dosya',
     'copied': 'Kopyalandı',
 
@@ -306,6 +311,11 @@ class AppStrings {
     'ok': 'OK',
     'error': 'Error',
     'startupError': 'Some services could not start',
+    'trustMigrationTitle': 'Your trusted device list was updated',
+    'trustMigrationBody':
+        'Trusted devices and favorites are now stored by fingerprint. Previous '
+            'entries were cleared for your security — please re-approve your '
+            'devices. This notice is shown only once.',
     'files': 'files',
     'copied': 'Copied',
 

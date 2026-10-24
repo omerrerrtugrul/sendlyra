@@ -43,6 +43,27 @@ class _ShellScreenState extends State<ShellScreen> {
         );
       });
     }
+    // R-3: güven/favori kayıtları parmak izine taşındıysa bir kez bilgi ver.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final settings = context.read<SettingsService>();
+      if (!settings.needsTrustMigrationNotice) return;
+      final s = AppStrings.of(context);
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(s.t('trustMigrationTitle')),
+          content: Text(s.t('trustMigrationBody')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(s.t('ok')),
+            ),
+          ],
+        ),
+      );
+      await settings.markTrustMigrationNoticeShown();
+    });
   }
 
   void _onIncoming(IncomingRequest request) {

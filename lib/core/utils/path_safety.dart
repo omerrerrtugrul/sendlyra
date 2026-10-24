@@ -5,6 +5,8 @@
 /// kaydetme kökünün altında kalır.
 library;
 
+import 'dart:convert';
+
 /// Windows yedeklenmiş aygıt adları — dosya/klasör adı olarak kullanılamaz.
 const _reservedNames = {
   'CON', 'PRN', 'AUX', 'NUL',
@@ -37,9 +39,20 @@ String sanitizeSegment(String segment) {
     s = '_$s';
   }
 
-  // Ad uzunluğu sınırı (bayt cinsinden, UTF-8).
-  if (s.length > 255) {
-    s = s.substring(0, 255);
+  // Ad uzunluğu sınırı bayt cinsindendir (UTF-8) — R-5: Türkçe karakterler
+  // gibi çok baytlı gliflerde diske yazılan adın 255 baytı aşmaması için
+  // karakter değil UTF-8 baytı sayılır; kesim her zaman karakter (rune)
+  // sınırında yapılır, glif bölünmez.
+  if (utf8.encode(s).length > 255) {
+    final buf = StringBuffer();
+    var bytes = 0;
+    for (final rune in s.runes) {
+      final cost = utf8.encoder.convert(String.fromCharCode(rune)).length;
+      if (bytes + cost > 255) break;
+      bytes += cost;
+      buf.writeCharCode(rune);
+    }
+    s = buf.toString();
     s = s.replaceFirst(RegExp(r'[. ]+$'), '');
     if (s.isEmpty) s = '_';
   }

@@ -109,13 +109,15 @@ void main() {
   });
 
   group('expandSelections', () {
-    test('aynı göreli yollar tekilleştirilir', () {
+    test('aynı göreli yollar sessizce atılmaz, önekle tekilleştirilir', () {
       final entries = expandSelections(const [
         SendSelection(path: '/tmp/a.txt', isDirectory: false),
         SendSelection(path: '/x/y/a.txt', isDirectory: false),
       ]);
-      // İkisi de 'a.txt' göreli yolunu üretir → tek kayıt kalır.
-      expect(entries.length, 1);
+      // İkisi de 'a.txt' göreli yolunu üretir → O-31: biri atılmaz,
+      // kök önekiyle tekilleştirilir.
+      expect(entries.length, 2);
+      expect(entries.map((e) => e.relPath).toSet().length, 2);
     });
   });
 }

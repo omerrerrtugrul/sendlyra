@@ -19,6 +19,7 @@ class SettingsService extends ChangeNotifier {
   static const _kTransferPort = 'settings.transferPort';
   static const _kDiscoveryOn = 'settings.discoveryOn';
   static const _kLocale = 'settings.locale';
+  static const _kTrustNoticeShown = 'settings.trustMigrationNoticeShown';
 
   final SharedPreferences prefs;
 
@@ -60,7 +61,10 @@ class SettingsService extends ChangeNotifier {
     final legacyApproval = prefs.getBool(_kRequireApproval) ?? true;
     quickSaveMode =
         prefs.getString(_kQuickSave) ?? (legacyApproval ? 'off' : 'all');
-    pin = prefs.getString(_kPin);
+    // R-2: kasa mevcutken düz metin kopya asla okunmaz; PIN yalnızca
+    // [loadSecrets] ile kasadan yüklenir. Kasa olmayan ortamda
+    // (secrets == null, ör. testler) eski düz metin akışı korunur.
+    pin = (secrets == null) ? prefs.getString(_kPin) : null;
     trustedFingerprints = prefs.getStringList(_kTrusted) ?? [];
     favoriteNames = _decodeFavorites(prefs.getString(_kFavorites));
     knownPeers = _decodeFavorites(prefs.getString(_kKnownPeers));
@@ -121,6 +125,23 @@ class SettingsService extends ChangeNotifier {
     await prefs.setString(_kFavorites, jsonEncode(favoriteNames));
   }
 
+  /// R-3: güven/favori kayıtları kimlikten parmak izine taşındı; eski
+  /// kimlik tabanlı kayıtlar sessizce düşer. Eski biçimde kayıt kalmışsa
+  /// kullanıcıya bir kez bilgi verilir.
+  bool get needsTrustMigrationNotice {
+    if (prefs.getBool(_kTrustNoticeShown) ?? false) return false;
+    final legacyTrusted = prefs.get('settings.trusted');
+    final fav = prefs.get(_kFavorites);
+    final legacyFavorites = fav is String &&
+        fav.isNotEmpty &&
+        !fav.trim().startsWith('{');
+    return legacyTrusted != null || legacyFavorites;
+  }
+
+  Future<void> markTrustMigrationNoticeShown() async {
+    await prefs.setBool(_kTrustNoticeShown, true);
+  }
+
   static Map<String, String> _decodeFavorites(String? raw) {
     if (raw == null || raw.isEmpty) return {};
     try {
@@ -155,6 +176,9 @@ class SettingsService extends ChangeNotifier {
   }
 
   /// PIN'i güvenli kasadan yükler (uygulama başlangıcında çağrılır).
+  ///
+  /// R-2: bu yöntem [TransferService.start] içinde de savunma amaçlı
+  /// çağrılır; böylece PIN'i yüklenmeden istek kabul edilmez.
   Future<void> loadSecrets() async {
     final store = secrets;
     if (store == null) return;

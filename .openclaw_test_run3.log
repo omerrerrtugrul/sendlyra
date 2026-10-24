@@ -1,0 +1,87 @@
+Analyzing sendlyra...                                           
+No issues found! (ran in 21.5s)
+ANALYZE_EXIT=0
+00:00 +0: loading /home/work/.openclaw/workspace/sendlyra/test/format_test.dart
+00:00 +0: /home/work/.openclaw/workspace/sendlyra/test/format_test.dart: formatBytes birim dönüşümleri
+00:00 +1: /home/work/.openclaw/workspace/sendlyra/test/format_test.dart: formatSpeed saniyelik hız ekler
+00:00 +2: /home/work/.openclaw/workspace/sendlyra/test/format_test.dart: formatDuration süre birimleri
+00:00 +3: /home/work/.openclaw/workspace/sendlyra/test/format_test.dart: timeAgo göreli zaman
+00:00 +4: loading /home/work/.openclaw/workspace/sendlyra/test/goldens_test.dart
+00:01 +4: /home/work/.openclaw/workspace/sendlyra/test/goldens_test.dart: golden: cihazlar sayfası
+00:02 +5: /home/work/.openclaw/workspace/sendlyra/test/goldens_test.dart: golden: transferler sayfası
+00:02 +6: /home/work/.openclaw/workspace/sendlyra/test/goldens_test.dart: golden: ayarlar sayfası
+00:03 +7: /home/work/.openclaw/workspace/sendlyra/test/goldens_test.dart: QR diyaloğu taşmasız açılır
+00:03 +8: loading /home/work/.openclaw/workspace/sendlyra/test/lyra_crypto_test.dart
+00:04 +8: /home/work/.openclaw/workspace/sendlyra/test/lyra_crypto_test.dart: hkdfSha256 RFC 5869 Test Case 1 vektörüyle uyumlu
+00:04 +9: /home/work/.openclaw/workspace/sendlyra/test/lyra_crypto_test.dart: deriveSessionKeys istemci ve sunucu aynı oturum anahtarlarını türetir
+00:04 +10: /home/work/.openclaw/workspace/sendlyra/test/lyra_crypto_test.dart: LyraCipher mühürleme ve çözme turu çalışır
+00:04 +11: /home/work/.openclaw/workspace/sendlyra/test/lyra_crypto_test.dart: LyraCipher bozulan kare doğrulamadan geçmez
+00:04 +12: /home/work/.openclaw/workspace/sendlyra/test/lyra_crypto_test.dart: LyraCryptoIdentity anahtar dışa/içe aktarım turu
+00:04 +13: /home/work/.openclaw/workspace/sendlyra/test/lyra_crypto_test.dart: LyraCryptoIdentity parmak izi açık anahtarla birebir doğrulanır
+00:04 +14: /home/work/.openclaw/workspace/sendlyra/test/lyra_crypto_test.dart: sabit zamanlı karşılaştırma eşit değerler eşit bulunur
+00:04 +15: /home/work/.openclaw/workspace/sendlyra/test/lyra_crypto_test.dart: sabit zamanlı karşılaştırma farklı uzunluk ve içerik eşit bulunmaz
+00:04 +16: loading /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart
+00:05 +16: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: sanitizeSegment dizin kaçışı girişimlerini nötralize eder
+00:05 +17: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: sanitizeSegment Windows sürücü-göreli referansları temizler
+00:05 +18: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: sanitizeSegment Windows yedeklenmiş aygıt adlarını nötralize eder
+00:05 +19: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: sanitizeSegment Windows için geçersiz karakterleri temizler
+00:05 +20: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: sanitizeSegment sondaki nokta ve boşlukları atar
+00:05 +21: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: sanitizeSegment aşırı uzun adları kırpar
+00:05 +22: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: uniqueName çakışma yoksa adı aynen korur
+00:05 +23: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: uniqueName çakışmada dosya (2).pdf üretilir
+00:05 +24: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: uniqueName uzantısız adlarda da çalışır
+00:05 +25: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: isInsideRoot kök altındaki yolları kabul eder
+00:05 +26: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: isInsideRoot kök dışındaki yolları reddeder
+00:05 +27: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: safeJoin klasör yapısını korur
+00:05 +28: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: safeJoin dizin kaçışına izin vermez
+00:05 +29: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: safeJoin sondaki eğik çizgi sorun çıkarmaz
+00:05 +30: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: safeJoin boş rel varsayılan adla sonuçlanır
+00:05 +31: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: SendSelection tek dosya seçimi kendisiyle açılır
+00:05 +32: /home/work/.openclaw/workspace/sendlyra/test/path_safety_test.dart: expandSelections aynı göreli yollar sessizce atılmaz, önekle tekilleştirilir
+00:05 +33: loading /home/work/.openclaw/workspace/sendlyra/test/phase2_test.dart
+00:06 +33: /home/work/.openclaw/workspace/sendlyra/test/phase2_test.dart: SecretStore (O-13) yaz-ok-sil turu çalışır (kasaya düşerse prefs temizlenir)
+00:06 +34: /home/work/.openclaw/workspace/sendlyra/test/phase2_test.dart: SecretStore (O-13) PIN güvenli saklanır (loadSecrets turu)
+00:06 +35: /home/work/.openclaw/workspace/sendlyra/test/phase2_test.dart: hata kodu yerelleştirmesi (O-20) kodlar iki dilde de çevrilir
+00:06 +36: /home/work/.openclaw/workspace/sendlyra/test/phase2_test.dart: hata kodu yerelleştirmesi (O-20) bilinmeyen değerler olduğu gibi döner
+00:06 +37: /home/work/.openclaw/workspace/sendlyra/test/phase2_test.dart: geçmiş (D-35) kayıt silinebilir ve detay alanları korunur
+00:06 +38: /home/work/.openclaw/workspace/sendlyra/test/phase2_test.dart: displayName (D-21) çok dosyalı kayıt anlaşılır gösterilir
+00:06 +39: /home/work/.openclaw/workspace/sendlyra/test/phase2_test.dart: expandSelections (O-31) çakışan göreli yollar sessizce atılmaz, önek eklenir
+00:06 +40: /home/work/.openclaw/workspace/sendlyra/test/phase2_test.dart: meşgul durumu (beacon) busy alanı beacon turunu korur
+00:06 +41: loading /home/work/.openclaw/workspace/sendlyra/test/probe_test.dart
+00:06 +41: /home/work/.openclaw/workspace/sendlyra/test/probe_test.dart: SecretStore.read gerçek asenkronda tamamlanır
+00:06 +42: /home/work/.openclaw/workspace/sendlyra/test/probe_test.dart: IdentityService.load gerçek asenkronda tamamlanır
+00:06 +43: loading /home/work/.openclaw/workspace/sendlyra/test/protocol_messages_test.dart
+00:07 +43: /home/work/.openclaw/workspace/sendlyra/test/protocol_messages_test.dart: HelloInfo JSON turu korunur
+00:07 +44: /home/work/.openclaw/workspace/sendlyra/test/protocol_messages_test.dart: HelloInfo bozuk paket fırlatır
+00:07 +45: /home/work/.openclaw/workspace/sendlyra/test/protocol_messages_test.dart: IncomingOffer dosya listesi ayrıştırılır
+00:07 +46: /home/work/.openclaw/workspace/sendlyra/test/protocol_messages_test.dart: HistoryEntry JSON turu korunur
+00:07 +47: /home/work/.openclaw/workspace/sendlyra/test/protocol_messages_test.dart: TransferJob ilerleme ve görünüm hesapları
+00:07 +48: loading /home/work/.openclaw/workspace/sendlyra/test/residual_fixes_test.dart
+00:08 +48: /home/work/.openclaw/workspace/sendlyra/test/residual_fixes_test.dart: R-5: ad sınırı bayt bazlıdır çok baytlı karakterlerde UTF-8 baytı 255'i aşmaz
+00:08 +49: /home/work/.openclaw/workspace/sendlyra/test/residual_fixes_test.dart: R-5: ad sınırı bayt bazlıdır kesim karakter sınırında yapılır (glif bölünmez)
+00:08 +50: /home/work/.openclaw/workspace/sendlyra/test/residual_fixes_test.dart: R-5: ad sınırı bayt bazlıdır ASCII adlar eski davranışı korur (255 karakter)
+00:08 +51: /home/work/.openclaw/workspace/sendlyra/test/residual_fixes_test.dart: R-4: async seçim açılımında kök öneki doğrudur farklı köklerden çakışan yollar doğru kök adıyla tekilleştirilir
+00:08 +52: /home/work/.openclaw/workspace/sendlyra/test/residual_fixes_test.dart: R-4: async seçim açılımında kök öneki doğrudur senkron ve async sürüm aynı adlandırma kuralını üretir
+00:08 +53: /home/work/.openclaw/workspace/sendlyra/test/residual_fixes_test.dart: R-2: PIN düz metin okunmaz, kasadan yüklenir kasa varken kurucu düz metin kopyayı okumaz
+00:08 +54: /home/work/.openclaw/workspace/sendlyra/test/residual_fixes_test.dart: R-2: PIN düz metin okunmaz, kasadan yüklenir setPin → loadSecrets turu kasada tutarlıdır
+00:08 +55: /home/work/.openclaw/workspace/sendlyra/test/residual_fixes_test.dart: R-6: protokol limitleri zorlanır hello adı 64 karakterden uzunsa kabulde kırpılır
+00:08 +56: /home/work/.openclaw/workspace/sendlyra/test/residual_fixes_test.dart: R-6: protokol limitleri zorlanır hello üretiminde de kırpma uygulanır
+00:08 +57: /home/work/.openclaw/workspace/sendlyra/test/residual_fixes_test.dart: R-6: protokol limitleri zorlanır beacon adı da kırpılır
+00:08 +58: loading /home/work/.openclaw/workspace/sendlyra/test/security_fixes_test.dart
+00:09 +58: /home/work/.openclaw/workspace/sendlyra/test/security_fixes_test.dart: K-1: el sıkışma kimlik doğrulaması sahte parmak izi ile hello reddedilir
+00:09 +59: /home/work/.openclaw/workspace/sendlyra/test/security_fixes_test.dart: K-1: el sıkışma kimlik doğrulaması geçerli parmak izi el sıkışmayı tamamlar
+00:09 +60: /home/work/.openclaw/workspace/sendlyra/test/security_fixes_test.dart: K-3: PIN kilidi auth gönderilmeden gelen teklif reddedilir
+00:09 +61: /home/work/.openclaw/workspace/sendlyra/test/security_fixes_test.dart: K-3: PIN kilidi yanlış PIN denemesi başarısız olur ve kilitlenir
+00:09 +62: /home/work/.openclaw/workspace/sendlyra/test/security_fixes_test.dart: K-2: TOFU parmak izi pingleme parmak izi değişimi tespit edilir
+00:09 +63: /home/work/.openclaw/workspace/sendlyra/test/security_fixes_test.dart: K-2: TOFU parmak izi pingleme güvenilir liste parmak izine bağlıdır
+00:09 +64: loading /home/work/.openclaw/workspace/sendlyra/test/ui_smoke_test.dart
+00:10 +64: /home/work/.openclaw/workspace/sendlyra/test/ui_smoke_test.dart: uygulama açılır ve üç sekme görünür
+00:11 +65: /home/work/.openclaw/workspace/sendlyra/test/ui_smoke_test.dart: IP ile bağlan butonu diyalog açar (Provider hatası yok)
+00:12 +66: /home/work/.openclaw/workspace/sendlyra/test/ui_smoke_test.dart: kendi cihaz adı düzenleme diyalogu açılır
+00:12 +67: /home/work/.openclaw/workspace/sendlyra/test/ui_smoke_test.dart: QR butonu diyalog açar ve içerik taşmaz
+00:12 +68: /home/work/.openclaw/workspace/sendlyra/test/ui_smoke_test.dart: sekmeler arasında geçiş çalışır
+00:12 +69: /home/work/.openclaw/workspace/sendlyra/test/ui_smoke_test.dart: hızlı kaydetme kipi değiştirilebilir
+00:13 +70: /home/work/.openclaw/workspace/sendlyra/test/ui_smoke_test.dart: PIN ayarlama akışı çalışır
+00:13 +71: /home/work/.openclaw/workspace/sendlyra/test/ui_smoke_test.dart: tema ve dil değişimi uygulanır
+00:14 +72: All tests passed!
+TEST_EXIT=0

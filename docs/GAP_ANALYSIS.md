@@ -57,6 +57,19 @@ tema/dil/port ayarları, QR, sunucu yeniden başlatma.
 
 ## ❌ Kalan Eksikler
 
+> **24.10.2026 güncellemesi:** Yapılan kod incelemesinde aşağıdaki maddelerin
+> aslında tamamlandığı doğrulandı — doküman bayat kalmıştı:
+> - **#4 Geçmişten tekil kayıt silme + detay** → ✅ `transfers_page.dart`
+>   (`detail` + `remove`) kodda mevcut.
+> - **#8 "Alıcı meşgul" durumu** → ✅ beacon `busy` yayını + cihaz listesinde
+>   `[meşgul]` rozeti mevcut; kalan: gönderim kuyruklaması.
+> - **O-20 hata kodu yerelleştirmesi** → ✅ `AppStrings.errorText()` + UI
+>   kullanımı doğrulandı.
+> Ayrıca kapatılan rezidüel bulgular: R-2 (PIN kasa), R-4 (kök öneki),
+> R-5 (bayt bazlı ad sınırı), R-6 (protokol limitleri), R-3 (göç diyaloğu).
+> Yeni eklenenler: **QR tarama yok** (yeni madde #16), LICENSE/CHANGELOG
+> (CHANGELOG eklendi; LICENSE için lisans kararı bekleniyor).
+
 ### Büyük özellikler
 | # | Özellik | Not |
 |---|---|---|
@@ -67,12 +80,11 @@ tema/dil/port ayarları, QR, sunucu yeniden başlatma.
 ### Orta özellikler
 | # | Özellik |
 |---|---|
-| 4 | Geçmişten tekil kayıt silme + detay görünümü |
 | 5 | Panodan içerik gönderimi |
 | 6 | Mobil Share Intent + Android APK seçimi + galeriye kaydetme |
 | 7 | Bildirimler (tamamlandı uyarısı) |
-| 8 | "Alıcı meşgul" durumu |
 | 9 | IPv6 + IP aralığı taraması (yedek keşif) |
+| 16 | 📷 QR tarama (kamera ile bağlanma) + QR parmak izi karşılaştırmalı eşleşme (R-1) |
 
 ### Cila
 | # | Özellik |
@@ -85,7 +97,7 @@ tema/dil/port ayarları, QR, sunucu yeniden başlatma.
 | 15 | Gizlilik politikası / changelog / sorun giderme ekranları |
 
 ## Önerilen sonraki sıra
-1. Geçmiş iyileştirmeleri + pano gönderimi (hızlı kazanımlar)
-2. Bildirimler + meşgul durumu
+1. ~~Geçmiş iyileştirmeleri~~ (tamam) + pano gönderimi (hızlı kazanımlar)
+2. Bildirimler + meşgul kuyruklaması
 3. 🌐 Tarayıcı paylaşımı (en değerli büyük özellik)
-4. WebRTC / CLI
+4. QR tarama (R-1 kapanışı) → WebRTC / CLI

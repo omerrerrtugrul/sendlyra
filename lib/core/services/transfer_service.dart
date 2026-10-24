@@ -89,6 +89,8 @@ class TransferService extends ChangeNotifier {
   Future<void> start() async {
     if (_started) return;
     _started = true;
+    // R-2 (savunma): PIN güvenli kasadan yüklenmeden istek kabul edilmesin.
+    await settings.loadSecrets();
     settings.removeListener(_onSettingsChanged);
     settings.addListener(_onSettingsChanged);
 

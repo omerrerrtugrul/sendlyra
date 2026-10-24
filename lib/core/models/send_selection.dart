@@ -91,11 +91,12 @@ List<SendFileEntry> expandSelections(List<SendSelection> selections) {
     for (final entry in selection.expand()) {
       var rel = entry.relPath;
       if (!seen.add(rel)) {
-        var i = 2;
-        var candidate = '${selection.displayName}-$rel';
+        final root = selection.displayName;
+        var candidate = '$root-$rel';
+        var n = 2;
         while (!seen.add(candidate)) {
-          i++;
-          candidate = '$i-${selection.displayName}-$rel';
+          candidate = '$n-$root-$rel';
+          n++;
         }
         rel = candidate;
         out.add(SendFileEntry(
@@ -120,34 +121,32 @@ Future<List<SendFileEntry>> expandSelectionsAsync(
           'path': entry.file.path,
           'rel': entry.relPath,
           'size': entry.size,
+          // R-4: kök adı kayıt altına alınır; çakışma tekilleştirmesinde
+          // her dosya kendi kökünün önekini alır.
+          'root': selection.displayName,
         });
       }
     }
     return out;
   });
-  final entries = [
-    for (final item in scanned)
-      SendFileEntry(
-        file: File(item['path'] as String),
-        relPath: item['rel'] as String,
-        size: item['size'] as int?,
-      ),
-  ];
-  // Tekilleştirme aynı kuralla yapılır.
+  // Tekilleştirme aynı kuralla yapılır (R-4): kök öneki isolate taramasında
+  // kaydedilen kök adından gelir — senkron [expandSelections] ile tutarlı.
   final out = <SendFileEntry>[];
   final seen = <String>{};
-  for (var i = 0; i < entries.length; i++) {
-    final entry = entries[i];
+  for (final item in scanned) {
+    final entry = SendFileEntry(
+      file: File(item['path'] as String),
+      relPath: item['rel'] as String,
+      size: item['size'] as int?,
+    );
+    final root = (item['root'] as String?) ?? 'kok';
     var rel = entry.relPath;
     if (!seen.add(rel)) {
-      final root = selections
-          .map((s) => s.displayName)
-          .firstWhere((_) => true, orElse: () => 'kok');
       var candidate = '$root-$rel';
       var n = 2;
       while (!seen.add(candidate)) {
-        n++;
         candidate = '$n-$root-$rel';
+        n++;
       }
       rel = candidate;
       out.add(

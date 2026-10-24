@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../models/device.dart';
+import '../protocol/lyra_message.dart';
 import '../protocol/lyra_protocol.dart';
 
 /// LyraLink keşif katmanı.
@@ -39,9 +40,9 @@ class DiscoveryBeacon {
       Map<String, dynamic> json, String address, DateTime now) {
     return DiscoveryBeacon(
       id: json['id'] as String,
-      name: (json['name'] as String?) ?? 'bilinmeyen',
-      os: (json['os'] as String?) ?? 'unknown',
-      deviceType: (json['dev'] as String?) ?? 'unknown',
+      name: clampName((json['name'] as String?) ?? 'bilinmeyen'),
+      os: clampName((json['os'] as String?) ?? 'unknown'),
+      deviceType: clampName((json['dev'] as String?) ?? 'unknown'),
       address: address,
       port: (json['port'] as num?)?.toInt() ?? LyraProtocol.defaultTransferPort,
       publicKeyBase64: (json['pk'] as String?) ?? '',
@@ -160,8 +161,17 @@ class DiscoveryService {
       'ts': DateTime.now().millisecondsSinceEpoch,
     };
     final bytes = utf8.encode(jsonEncode(payload));
+    var outBytes = bytes;
+    // R-6: beacon protokol sınırını (512 bayt) aşarsa ad kırpılarak
+    // sığdırılır; gönderim asla sınırsız paket üretmez.
+    var name = self.name;
+    while (outBytes.length > LyraProtocol.maxBeaconBytes && name.isNotEmpty) {
+      name = String.fromCharCodes(name.runes.take(name.runes.length - 1));
+      payload['name'] = name;
+      outBytes = utf8.encode(jsonEncode(payload));
+    }
     try {
-      socket.send(bytes, InternetAddress(LyraProtocol.multicastGroup),
+      socket.send(outBytes, InternetAddress(LyraProtocol.multicastGroup),
           LyraProtocol.discoveryPort);
     } catch (_) {}
   }

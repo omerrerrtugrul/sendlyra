@@ -23,6 +23,10 @@ class SecretStore {
   SecretStore(this.prefs);
 
   /// Değeri okur: önce kasa, sonra (eski/yerleşik) düz metin kopya.
+  ///
+  /// Geçiş: düz metin kopya bulunursa kasa çalışıyorsa otomatik olarak
+  /// kasaya taşınır ve `SharedPreferences`'tan silinir (dokümandaki
+  /// migrasyon sözü — R-2 incelemesinde gerçek davranışla eşitlendi).
   Future<String?> read(String key) async {
     if (_secureAvailable) {
       try {
@@ -32,7 +36,16 @@ class SecretStore {
         _secureAvailable = false;
       }
     }
-    return prefs.getString(key);
+    final legacy = prefs.getString(key);
+    if (legacy != null && legacy.isNotEmpty && _secureAvailable) {
+      try {
+        await _secure.write(key: key, value: legacy);
+        await prefs.remove(key);
+      } catch (_) {
+        _secureAvailable = false;
+      }
+    }
+    return legacy;
   }
 
   /// Değeri yazar. Kasa çalışıyorsa düz metin kopya silinir (geçiş dahil).

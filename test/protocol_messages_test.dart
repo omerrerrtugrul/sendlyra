@@ -91,7 +91,8 @@ void main() {
       expect(job.progress, closeTo(0.25, 0.001));
       job.files.first.done = 100;
       job.files.first.completed = true;
-      expect(job.displayName, 'a.bin +1');
+      // D-21: çok dosyalı kayıt '(+n)' biçiminde gösterilir.
+      expect(job.displayName, 'a.bin (+1)');
       expect(job.isFinished, false);
       job.state = JobState.completed;
       expect(job.isFinished, true);

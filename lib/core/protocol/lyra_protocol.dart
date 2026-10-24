@@ -38,4 +38,7 @@ abstract final class LyraProtocol {
 
   /// Cihaz adı uzunluk sınırı.
   static const int maxNameLength = 64;
+
+  /// Beacon (UDP keşif paketi) maksimum boyutu — R-6: üretimde zorlanır.
+  static const int maxBeaconBytes = 512;
 }

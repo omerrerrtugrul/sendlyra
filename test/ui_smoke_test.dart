@@ -6,6 +6,7 @@ import 'package:sendlyra/core/services/history_service.dart';
 import 'package:sendlyra/core/services/identity_service.dart';
 import 'package:sendlyra/core/services/settings_service.dart';
 import 'package:sendlyra/core/services/transfer_service.dart';
+import 'helpers/fake_secret_store.dart';
 
 /// Sonsuz (repeat) animasyonlar nedeniyle `pumpAndSettle` kullanılmaz;
 /// bunun yerine sınırlı sayıda kare pompalanır.
@@ -18,7 +19,10 @@ Future<void> settle(WidgetTester tester) async {
 Future<TransferService> pumpApp(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
-  final identity = await IdentityService.load(prefs);
+  // A-1: flutter_secure_storage test bağlamında (FakeAsync) askıda kalır —
+  // widget testlerinde FakeSecretStore kullanılır.
+  final identity =
+      await IdentityService.load(prefs, secrets: FakeSecretStore(prefs));
   final settings = SettingsService(prefs);
   final history = HistoryService(prefs);
   final transfer = TransferService(

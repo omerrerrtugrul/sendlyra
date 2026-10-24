@@ -1,6 +1,14 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'lyra_protocol.dart';
+
+/// R-6: cihaz adı/etiket alanları [LyraProtocol.maxNameLength] ile
+/// sınırlanır; hem üretim hem kabul tarafında kullanılır.
+String clampName(String s) => s.length > LyraProtocol.maxNameLength
+    ? s.substring(0, LyraProtocol.maxNameLength)
+    : s;
+
 /// LyraLink kontrol mesajları.
 ///
 /// El sıkışma sonrası tüm kontrol mesajları şifreli kanaldan JSON olarak geçer.
@@ -53,9 +61,9 @@ class HelloInfo {
         't': 'hello',
         'v': version,
         'id': id,
-        'name': name,
-        'os': os,
-        'dev': deviceType,
+        'name': clampName(name),
+        'os': clampName(os),
+        'dev': clampName(deviceType),
         'pk': base64Encode(publicKey),
         'fp': fingerprint,
       };
@@ -75,9 +83,12 @@ class HelloInfo {
     return HelloInfo(
       version: (json['v'] as num?)?.toInt() ?? 0,
       id: json['id'] as String,
-      name: (json['name'] is String) ? json['name'] as String : 'unknown',
-      os: (json['os'] is String) ? json['os'] as String : 'unknown',
-      deviceType: (json['dev'] is String) ? json['dev'] as String : 'unknown',
+      name: clampName(
+          (json['name'] is String) ? json['name'] as String : 'unknown'),
+      os: clampName(
+          (json['os'] is String) ? json['os'] as String : 'unknown'),
+      deviceType: clampName(
+          (json['dev'] is String) ? json['dev'] as String : 'unknown'),
       publicKey: publicKey,
       fingerprint: (fp is String) ? fp : '',
     );

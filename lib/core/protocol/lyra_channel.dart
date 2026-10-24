@@ -94,6 +94,8 @@ class LyraChannel {
       _sendCipher = LyraCipher(keys.sendKey);
       _recvCipher = LyraCipher(keys.recvKey);
       _encrypted = true;
+      // Faz geçişi: bekletilen şifreli kare parçaları artık işlenebilir.
+      _schedulePump();
       peerInfo = peer;
       return peer;
     } finally {
@@ -108,6 +110,13 @@ class LyraChannel {
     _schedulePump();
   }
 
+  /// Faz geçişi kilidi: hello satırı tüketildikten sonra kalan baytlar
+  /// şifreli kare parçasıdır; el sıkışma `_encrypted`'ı ayarlayana kadar
+  /// hiç tüketilmez. (Aksi hâlde şifreli ikili verideki rastgele 0x0A
+  /// baytı "satır sonu" sanılıp yarım UTF-8 çözülmeye çalışılır — K-3
+  /// testindeki FormatException yarışının kök nedeni.)
+  bool _awaitingEncrypt = false;
+
   void _schedulePump() {
     if (_pumping || _closed) return;
     _pumping = true;
@@ -118,6 +127,7 @@ class LyraChannel {
   }
 
   Future<void> _pump() async {
+    if (_awaitingEncrypt && !_encrypted) return;
     // Biriken tüm baytlar tek seferde alınır; işlenemeyen kuyruk
     // (tamamlanmamış satır/kare) geri eklenir — yalnızca kuyruk kopyalanır.
     final buf = _buffer.takeBytes();
@@ -126,13 +136,21 @@ class LyraChannel {
       if (!_encrypted) {
         final idx = buf.indexOf(0x0A, offset);
         if (idx < 0) break;
-        final line = utf8.decode(buf.sublist(offset, idx));
+        final line =
+            utf8.decode(buf.sublist(offset, idx), allowMalformed: true);
         offset = idx + 1;
         if (line.trim().isEmpty) continue;
         try {
           final json = jsonDecode(line);
           if (json is Map<String, dynamic>) {
-            _events.add(LyraEvent.control(json['t'] as String?, json));
+            final type = json['t'] as String?;
+            _events.add(LyraEvent.control(type, json));
+            if (type == 'hello') {
+              // Hello'dan sonraki her bayt şifreli karedir.
+              _awaitingEncrypt = true;
+              if (offset < buf.length) _buffer.add(buf.sublist(offset));
+              return;
+            }
           }
         } catch (_) {
           // Bozuk satır yutulur; üst katman gerekirse zaman aşımıyla kopar.
