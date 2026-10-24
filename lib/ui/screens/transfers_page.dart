@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/models/transfer_job.dart';
 import '../../core/services/history_service.dart';
-import '../../core/services/settings_service.dart';
 import '../../core/services/transfer_service.dart';
 import '../../core/utils/format.dart';
 import '../strings.dart';
@@ -19,10 +19,8 @@ class TransfersPage extends StatelessWidget {
     final s = AppStrings.of(context);
     final scheme = Theme.of(context).colorScheme;
     final transfer = context.watch<TransferService>();
-    final settings = context.watch<SettingsService>();
     final history = context.watch<HistoryService>();
     final active = transfer.activeJobs;
-    final finished = transfer.jobs.where((j) => j.isFinished).toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
@@ -52,7 +50,7 @@ class TransfersPage extends StatelessWidget {
         const SizedBox(height: 16),
         _SectionHeader(
           title: s.t('history'),
-          action: history.entries.isEmpty && finished.isEmpty
+          action: history.entries.isEmpty
               ? null
               : TextButton.icon(
                   onPressed: () async {
@@ -81,7 +79,7 @@ class TransfersPage extends StatelessWidget {
                 ),
         ),
         const SizedBox(height: 12),
-        if (history.entries.isEmpty && finished.isEmpty)
+        if (history.entries.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: EmptyState(
@@ -89,20 +87,7 @@ class TransfersPage extends StatelessWidget {
               title: s.t('historyEmpty'),
             ),
           )
-        else ...[
-          for (final job in finished)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: TransferCard(
-                job: job,
-                onOpenFolder: () async {
-                  final path = job.files.isNotEmpty
-                      ? (job.files.first.savedPath ?? settings.saveDir)
-                      : settings.saveDir;
-                  await openInFileExplorer(path);
-                },
-              ),
-            ),
+        else
           for (final entry in history.entries)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -111,6 +96,7 @@ class TransfersPage extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
+                  onTap: () => _showDetail(context, s, entry),
                   leading: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
@@ -133,21 +119,118 @@ class TransfersPage extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
-                    '${entry.peerName} · ${formatBytes(entry.bytes)} · ${timeAgo(entry.time)}',
+                    '${entry.peerName} · ${formatBytes(entry.bytes)} · ${timeAgo(entry.time, locale: s.locale)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  trailing: Icon(
-                    entry.success
-                        ? Icons.check_circle_outline_rounded
-                        : Icons.error_outline_rounded,
-                    color: entry.success ? scheme.tertiary : scheme.error,
+                  trailing: PopupMenuButton<String>(
+                    icon: Icon(
+                      entry.success
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.error_outline_rounded,
+                      color: entry.success ? scheme.tertiary : scheme.error,
+                    ),
+                    onSelected: (value) async {
+                      if (value == 'detail') {
+                        _showDetail(context, s, entry);
+                      } else if (value == 'delete') {
+                        await context.read<HistoryService>().remove(entry.id);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'detail',
+                        child: Text(s.t('historyDetail')),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text(s.t('historyDelete')),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-        ],
       ],
+    );
+  }
+
+  /// Geçmiş kaydı detay diyaloğu (D-35): hata, mesaj ve kaydedilen yollar.
+  void _showDetail(BuildContext context, AppStrings s, HistoryEntry entry) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(s.t('historyDetail')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(entry.title),
+            const SizedBox(height: 6),
+            Text(
+              '${entry.peerName} · ${formatBytes(entry.bytes)} · ${timeAgo(entry.time, locale: s.locale)}',
+              style: Theme.of(dialogContext).textTheme.bodySmall,
+            ),
+            if (!entry.success && entry.error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                '${s.t('error')}: ${s.errorText(entry.error)}',
+                style: TextStyle(
+                    color: Theme.of(dialogContext).colorScheme.error),
+              ),
+            ],
+            if (entry.text != null && entry.text!.trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Theme.of(dialogContext)
+                      .colorScheme
+                      .secondaryContainer
+                      .withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(entry.text!, maxLines: 6),
+              ),
+            ],
+            if (entry.savedPaths.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              for (final path in entry.savedPaths)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.folder_open_rounded, size: 20),
+                  title: Text(
+                    path,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(dialogContext).textTheme.bodySmall,
+                  ),
+                  onTap: () => _openPath(dialogContext, s, path),
+                ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(s.t('close')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Yolu sistem görüntüleyicisiyle açar; mobilde yol panoya kopyalanır (D-34).
+  Future<void> _openPath(BuildContext context, AppStrings s, String path) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await openInFileExplorer(path);
+    if (ok || !context.mounted) return;
+    await Clipboard.setData(ClipboardData(text: path));
+    messenger.showSnackBar(
+      SnackBar(content: Text('${s.t('savedAt')}: $path · ${s.t('copied')}')),
     );
   }
 }

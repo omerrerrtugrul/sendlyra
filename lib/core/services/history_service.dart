@@ -35,11 +35,25 @@ class HistoryService extends ChangeNotifier {
         bytes: job.transferred,
         time: job.finishedAt ?? DateTime.now(),
         success: job.state == JobState.completed,
+        error: job.error,
+        text: job.text,
+        savedPaths: [
+          if (job.textSavedPath != null) job.textSavedPath!,
+          for (final f in job.files)
+            if (f.savedPath != null) f.savedPath!,
+        ],
       ),
     );
     if (entries.length > maxEntries) {
       entries.removeRange(maxEntries, entries.length);
     }
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Tek kaydı siler (D-35).
+  Future<void> remove(String id) async {
+    entries.removeWhere((e) => e.id == id);
     await _persist();
     notifyListeners();
   }

@@ -67,15 +67,70 @@ class _DevicesPageState extends State<DevicesPage> {
         multi: true);
     if (picked == null || picked.isEmpty) return;
 
-    final entries = expandSelections(selections);
+    final entries = await expandSelectionsAsync(selections);
     if (entries.isEmpty) return;
 
     final byId = {for (final d in devices) d.id: d};
-    for (final choice in picked) {
-      final device = byId[choice.id];
-      if (device == null) continue;
-      await _sendEntries(device, entries);
+    final targets = [
+      for (final choice in picked)
+        if (byId[choice.id] != null) byId[choice.id]!,
+    ];
+    await _sendBatch(targets, entries);
+  }
+
+  /// Çoklu hedefe **eşzamanlı** gönderim (C-1): her hedef için ayrı iş
+  /// açılır; PIN gerekenler için diyaloglar sırayla gösterilir.
+  Future<void> _sendBatch(
+      List<LyraDevice> targets, List<SendFileEntry> entries) async {
+    final transfer = context.read<TransferService>();
+    final settings = context.read<SettingsService>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    final results = await Future.wait([
+      for (final device in targets)
+        transfer.send(
+          target: device,
+          files: [for (final e in entries) e.file],
+          relPaths: [for (final e in entries) e.relPath],
+          pin: settings.pin,
+        ),
+    ]);
+
+    // PIN reddedilenleri tekrar dene (diyalar sırayla).
+    for (var i = 0; i < targets.length; i++) {
+      final job = results[i];
+      if (job.state == JobState.failed &&
+          (job.error == 'err.pinWrong' ||
+              job.error == 'err.pinRequired')) {
+        if (!mounted) return;
+        final pin = await _askPin();
+        if (pin == null || pin.isEmpty) continue;
+        results[i] = await transfer.send(
+          target: targets[i],
+          files: [for (final e in entries) e.file],
+          relPaths: [for (final e in entries) e.relPath],
+          pin: pin,
+        );
+      }
     }
+
+    if (!mounted) return;
+    widget.onGoToTransfers?.call();
+    final s = AppStrings.of(context);
+    final failed =
+        results.where((j) => j.state == JobState.failed).length;
+    final firstError = results
+        .where((j) => j.state == JobState.failed)
+        .map((j) => j.error)
+        .firstWhere((_) => true, orElse: () => null);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(failed == 0
+            ? '${targets.length} ${s.t('tabDevices')}: ${entries.length} ${s.t('items')}'
+            : '${s.t('error')}: ${s.errorText(firstError)}'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _sendEntries(
@@ -92,7 +147,8 @@ class _DevicesPageState extends State<DevicesPage> {
     );
 
     // PIN reddedildiyse bir kez daha sor ve tekrar dene.
-    if (job.state == JobState.failed && (job.error ?? '').contains('PIN')) {
+    if (job.state == JobState.failed &&
+        (job.error == 'err.pinWrong' || job.error == 'err.pinRequired')) {
       if (!mounted) return;
       final pin = await _askPin();
       if (pin != null && pin.isNotEmpty) {
@@ -111,7 +167,7 @@ class _DevicesPageState extends State<DevicesPage> {
     messenger.showSnackBar(
       SnackBar(
         content: Text(job.state == JobState.failed
-            ? '${s.t('error')}: ${job.error ?? ''}'
+            ? '${s.t('error')}: ${s.errorText(job.error)}'
             : '${device.name}: ${entries.length} ${s.t('items')}'),
         duration: const Duration(seconds: 2),
       ),
@@ -315,7 +371,7 @@ class _DevicesPageState extends State<DevicesPage> {
             const SizedBox(height: 6),
             Text('IP: ${device.address}:${device.port}'),
             const SizedBox(height: 6),
-            Text('${s.t('lastSeen')}: ${timeAgo(device.lastSeen)}'),
+            Text('${s.t('lastSeen')}: ${timeAgo(device.lastSeen, locale: s.locale)}'),
           ],
         ),
         actions: [

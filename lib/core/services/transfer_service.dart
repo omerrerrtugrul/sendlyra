@@ -34,7 +34,7 @@ class IncomingRequest {
     }
   }
 
-  void reject([String reason = 'kullanıcı reddetti']) {
+  void reject([String reason = 'err.userRejected']) {
     if (!decision.isCompleted) {
       decision.complete(AcceptDecision.reject(reason));
     }
@@ -101,6 +101,7 @@ class TransferService extends ChangeNotifier {
         port: settings.transferPort,
         publicKeyBase64: identity.publicKeyBase64,
         fingerprint: identity.fingerprint,
+        busy: activeJobs.isNotEmpty,
       ),
     );
     if (settings.discoveryOn) {
@@ -141,7 +142,7 @@ class TransferService extends ChangeNotifier {
           _incomingController.add(request);
           return request.decision.future.timeout(
             const Duration(seconds: 120),
-            onTimeout: () => const AcceptDecision.reject('zaman aşımı'),
+            onTimeout: () => const AcceptDecision.reject('err.timeout'),
           );
         },
       ),
@@ -162,7 +163,7 @@ class TransferService extends ChangeNotifier {
   /// Değişmişse bağlantı reddedilir (taklit / MITM uyarısı).
   Future<String?> _verifyPeer(HelloInfo peer) async {
     if (settings.fingerprintChanged(peer.id, peer.fingerprint)) {
-      return 'cihazın parmak izi değişti — bağlantı reddedildi';
+      return 'err.fingerprintChanged';
     }
     await settings.rememberPeer(peer.id, peer.fingerprint);
     return null;
@@ -187,7 +188,19 @@ class TransferService extends ChangeNotifier {
   void _onJobCreated(TransferJob job) {
     jobs.insert(0, job);
     _sampleSpeed(job);
+    _pruneJobs();
     notifyListeners();
+  }
+
+  /// D-24: biten işler bellekte tutulur ama budanır (en fazla 50).
+  void _pruneJobs() {
+    const maxFinished = 50;
+    final finished = jobs.where((j) => j.isFinished).toList();
+    if (finished.length > maxFinished) {
+      for (final job in finished.sublist(maxFinished)) {
+        jobs.remove(job);
+      }
+    }
   }
 
   void _onJobUpdated(TransferJob job) {
@@ -322,7 +335,7 @@ class TransferService extends ChangeNotifier {
   void cancelJob(TransferJob job) {
     if (job.isFinished) return;
     job.state = JobState.cancelled;
-    job.error = 'yerel olarak iptal edildi';
+    job.error = 'err.localCancel';
     job.finishedAt = DateTime.now();
     unawaited(history.add(job));
     notifyListeners();

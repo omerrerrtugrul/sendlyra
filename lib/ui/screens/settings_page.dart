@@ -38,7 +38,7 @@ class SettingsPage extends StatelessWidget {
                   content: TextField(
                     controller: controller,
                     autofocus: true,
-                    maxLength: 32,
+                    maxLength: 64,
                   ),
                   actions: [
                     TextButton(

@@ -47,7 +47,14 @@ class QrPanel extends StatelessWidget {
     );
   }
 
-  Future<String> _localIp() async {
+  Future<String> _localIp() {
+    // D-37: IP her rebuild'de yeniden taranmaz; bir kez hesaplanır.
+    return _ipFuture ??= _fetchIp();
+  }
+
+  static Future<String>? _ipFuture;
+
+  static Future<String> _fetchIp() async {
     try {
       final interfaces = await NetworkInterface.list(
           type: InternetAddressType.IPv4, includeLoopback: false);

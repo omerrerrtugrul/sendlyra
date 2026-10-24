@@ -35,7 +35,8 @@ class FileTransfer {
     this.error,
   });
 
-  double get progress => size <= 0 ? 1 : (done / size).clamp(0, 1);
+  double get progress =>
+      size <= 0 ? (completed ? 1 : 0) : (done / size).clamp(0, 1);
 }
 
 /// Bir gönderim/alım işi.
@@ -51,6 +52,9 @@ class TransferJob {
 
   JobState state;
   String? error;
+
+  /// Metin mesajının diske kaydedilen yolu (O-18).
+  String? textSavedPath;
   int transferred = 0;
   double speedBps = 0;
   DateTime? finishedAt;
@@ -93,7 +97,7 @@ class TransferJob {
     if (files.length == 1) return files.first.relPath ?? files.first.name;
     if (files.length > 1) {
       final first = files.first.relPath ?? files.first.name;
-      return '$first +${files.length - 1}';
+      return '$first (+${files.length - 1})';
     }
     return text != null ? _preview(text!) : 'mesaj';
   }
@@ -114,6 +118,15 @@ class HistoryEntry {
   final DateTime time;
   final bool success;
 
+  /// Hata kodu/bilgisi (başarısız kayıtlar için).
+  final String? error;
+
+  /// Metin mesajı içeriği (varsa).
+  final String? text;
+
+  /// Kaydedilen dosya yolları (detay görünümü için).
+  final List<String> savedPaths;
+
   const HistoryEntry({
     required this.id,
     required this.direction,
@@ -122,6 +135,9 @@ class HistoryEntry {
     required this.bytes,
     required this.time,
     required this.success,
+    this.error,
+    this.text,
+    this.savedPaths = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -132,6 +148,9 @@ class HistoryEntry {
         'bytes': bytes,
         'time': time.millisecondsSinceEpoch,
         'ok': success,
+        if (error != null) 'error': error,
+        if (text != null) 'text': text,
+        if (savedPaths.isNotEmpty) 'paths': savedPaths,
       };
 
   factory HistoryEntry.fromJson(Map<String, dynamic> json) => HistoryEntry(
@@ -143,6 +162,12 @@ class HistoryEntry {
         time: DateTime.fromMillisecondsSinceEpoch(
             (json['time'] as num?)?.toInt() ?? 0),
         success: json['ok'] as bool? ?? false,
+        error: json['error'] as String?,
+        text: json['text'] as String?,
+        savedPaths: (json['paths'] as List?)
+                ?.map((e) => '$e')
+                .toList() ??
+            const [],
       );
 
   static List<HistoryEntry> listFromJson(String source) {

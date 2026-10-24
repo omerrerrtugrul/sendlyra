@@ -25,12 +25,18 @@ String formatDuration(Duration d) {
   return '${d.inSeconds} sn';
 }
 
-String timeAgo(DateTime time) {
+/// "az önce", "5 dk önce" gibi göreli zaman metni (yerelleştirilmiş, D-33).
+String timeAgo(DateTime time, {String locale = 'tr'}) {
   final diff = DateTime.now().difference(time);
-  if (diff.inMinutes < 1) return 'az önce';
-  if (diff.inHours < 1) return '${diff.inMinutes} dk önce';
-  if (diff.inDays < 1) return '${diff.inHours} sa önce';
-  return '${diff.inDays} gün önce';
+  final en = locale == 'en';
+  if (diff.inMinutes < 1) return en ? 'just now' : 'az önce';
+  if (diff.inHours < 1) {
+    return en ? '${diff.inMinutes} min ago' : '${diff.inMinutes} dk önce';
+  }
+  if (diff.inDays < 1) {
+    return en ? '${diff.inHours} h ago' : '${diff.inHours} sa önce';
+  }
+  return en ? '${diff.inDays} d ago' : '${diff.inDays} gün önce';
 }
 
 /// Parmak izinin kısa gösterimi (listeler için); tam iz diyaloglarda görünür.

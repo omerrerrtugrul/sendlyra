@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/services/history_service.dart';
 import 'core/services/identity_service.dart';
+import 'core/services/secret_store.dart';
 import 'core/services/settings_service.dart';
 import 'core/services/transfer_service.dart';
 
@@ -12,8 +13,10 @@ Future<void> main() async {
 
   try {
     final prefs = await SharedPreferences.getInstance();
-    final identity = await IdentityService.load(prefs);
-    final settings = SettingsService(prefs);
+    final secrets = SecretStore(prefs);
+    final identity = await IdentityService.load(prefs, secrets: secrets);
+    final settings = SettingsService(prefs, secrets: secrets);
+    await settings.loadSecrets();
     final history = HistoryService(prefs);
     final transfer = TransferService(
       identity: identity,

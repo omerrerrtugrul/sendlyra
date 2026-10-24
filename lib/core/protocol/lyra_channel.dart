@@ -27,11 +27,13 @@ class LyraChannel {
   final _events = StreamController<LyraEvent>.broadcast();
   final _done = Completer<void>();
 
-  List<int> _pending = <int>[];
   bool _encrypted = false;
   bool _pumping = false;
   bool _closed = false;
   Future<void> _sendChain = Future<void>.value();
+
+  /// Birikmiş ham baytlar — parça kuyruğu ile O(n²) kopyalama engellenir (O-15).
+  final BytesBuilder _buffer = BytesBuilder(copy: false);
 
   HelloInfo? peerInfo;
 
@@ -102,7 +104,7 @@ class LyraChannel {
   /// Gelen ham baytları besler (socket dinleyicisinden çağrılır).
   void feed(List<int> chunk) {
     if (_closed) return;
-    _pending = <int>[..._pending, ...chunk];
+    _buffer.add(chunk);
     _schedulePump();
   }
 
@@ -111,17 +113,21 @@ class LyraChannel {
     _pumping = true;
     _pump().whenComplete(() {
       _pumping = false;
-      if (_pending.isNotEmpty && !_closed) _schedulePump();
+      if (_buffer.length > 0 && !_closed) _schedulePump();
     });
   }
 
   Future<void> _pump() async {
+    // Biriken tüm baytlar tek seferde alınır; işlenemeyen kuyruk
+    // (tamamlanmamış satır/kare) geri eklenir — yalnızca kuyruk kopyalanır.
+    final buf = _buffer.takeBytes();
+    var offset = 0;
     while (!_closed) {
       if (!_encrypted) {
-        final idx = _pending.indexOf(0x0A);
-        if (idx < 0) return;
-        final line = utf8.decode(_pending.sublist(0, idx));
-        _pending = _pending.sublist(idx + 1);
+        final idx = buf.indexOf(0x0A, offset);
+        if (idx < 0) break;
+        final line = utf8.decode(buf.sublist(offset, idx));
+        offset = idx + 1;
         if (line.trim().isEmpty) continue;
         try {
           final json = jsonDecode(line);
@@ -134,17 +140,17 @@ class LyraChannel {
         continue;
       }
 
-      if (_pending.length < 4) return;
+      if (buf.length - offset < 4) break;
       final len = ByteData.sublistView(
-        Uint8List.fromList(_pending.sublist(0, 4)),
+        Uint8List.fromList(buf.sublist(offset, offset + 4)),
       ).getUint32(0);
       if (len == 0 || len > LyraProtocol.maxFrameSize) {
         fail(const LyraProtocolException('kare boyutu sınırı aşıldı'));
         return;
       }
-      if (_pending.length < 4 + len) return;
-      final frame = _pending.sublist(4, 4 + len);
-      _pending = _pending.sublist(4 + len);
+      if (buf.length - offset - 4 < len) break;
+      final frame = buf.sublist(offset + 4, offset + 4 + len);
+      offset += 4 + len;
 
       try {
         final plain = await _recvCipher!.open(frame);
@@ -156,6 +162,11 @@ class LyraChannel {
           }
         } else if (plain[0] == 0x01) {
           _events.add(LyraEvent.data(plain.sublist(1)));
+        } else {
+          // D-23: bilinmeyen düz metin tipi sessizce yutulmaz.
+          fail(const LyraProtocolException(
+              'bilinmeyen kare tipi — bağlantı kapatılıyor'));
+          return;
         }
       } catch (e) {
         fail(e is LyraProtocolException
@@ -163,6 +174,9 @@ class LyraChannel {
             : LyraProtocolException('kare çözülemedi: $e'));
         return;
       }
+    }
+    if (offset < buf.length && !_closed) {
+      _buffer.add(buf.sublist(offset));
     }
   }
 

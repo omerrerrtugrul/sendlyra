@@ -70,9 +70,10 @@ class DeviceTile extends StatelessWidget {
           ],
         ),
         subtitle: Text(
-          isFavorite
+          '${device.busy ? '[${s.t('busy')}] ' : ''}'
+          '${isFavorite
               ? '${device.name} · ${fingerprintShort(device.fingerprint)}'
-              : '${fingerprintShort(device.fingerprint)}  ·  ${s.t('lastSeen')}: ${timeAgo(device.lastSeen)}',
+              : '${fingerprintShort(device.fingerprint)}  ·  ${s.t('lastSeen')}: ${timeAgo(device.lastSeen, locale: s.locale)}'}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),

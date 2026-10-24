@@ -12,6 +12,9 @@ class LyraDevice {
   final String fingerprint;
   DateTime lastSeen;
 
+  /// Karşı cihazın beacon'da bildirdiği meşgul durumu (aktif transfer var).
+  bool busy;
+
   LyraDevice({
     required this.id,
     required this.name,
@@ -22,6 +25,7 @@ class LyraDevice {
     required this.publicKeyBase64,
     required this.fingerprint,
     required this.lastSeen,
+    this.busy = false,
   });
 
   List<int> get publicKey => base64Decode(publicKeyBase64);

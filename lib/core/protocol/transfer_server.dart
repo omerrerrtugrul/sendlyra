@@ -3,15 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
 
 import '../models/transfer_job.dart';
+import '../utils/hash_isolate.dart';
 import '../utils/path_safety.dart';
 import 'lyra_channel.dart';
 import 'lyra_crypto.dart';
 import 'lyra_message.dart';
-import 'lyra_protocol.dart';
 
 /// Sunucu tarafı politikası: PIN kontrolü ve teklif kararı.
 class ServerPolicy {
@@ -49,6 +48,10 @@ class LyraTransferServer {
   final _pinAttempts = <String, List<DateTime>>{};
   static const _maxPinAttempts = 5;
   static const _pinLockout = Duration(minutes: 5);
+
+  /// Aynı anda kabul edilebilecek gelen transfer sayısı (meşgul kuralı).
+  static const int maxConcurrentIncoming = 3;
+  int _activeIncoming = 0;
 
   LyraTransferServer({
     required this.localInfo,
@@ -94,8 +97,7 @@ class LyraTransferServer {
     RandomAccessFile? raf;
     FileTransfer? currentFile;
     String? currentPartPath;
-    final sink = _DigestSink();
-    ByteConversionSink? hasher;
+    var counted = false;
 
     try {
       final peer = await channel.handshake(localInfo, keyPair: keyPair);
@@ -122,10 +124,25 @@ class LyraTransferServer {
         if (event.isData) {
           final data = event.bytes!;
           if (raf == null) continue;
+          // O-19: beyan edilen boyutu aşan yazma reddedilir.
+          final file = currentFile;
+          if (file != null &&
+              file.size > 0 &&
+              file.done + data.length > file.size) {
+            await channel.sendControlAndWait({
+              't': MsgType.error,
+              'reason': 'err.sizeMismatch',
+            });
+            job?.state = JobState.failed;
+            job?.error = 'err.sizeMismatch';
+            job?.finishedAt = DateTime.now();
+            if (job != null) onJobFinished?.call(job);
+            done = true;
+            continue;
+          }
           await raf.writeFrom(data);
           currentFile!.done += data.length;
           job!.transferred += data.length;
-          hasher?.add(data);
           onJobUpdated?.call(job);
           continue;
         }
@@ -138,7 +155,7 @@ class LyraTransferServer {
               await channel.sendControlAndWait({
                 't': MsgType.authResult,
                 'ok': false,
-                'reason': 'çok fazla hatalı deneme',
+                'reason': 'err.tooManyAttempts',
               });
               done = true;
               break;
@@ -151,7 +168,7 @@ class LyraTransferServer {
             await channel.sendControlAndWait({
               't': MsgType.authResult,
               'ok': pinVerified,
-              if (!pinVerified) 'reason': 'PIN hatalı',
+              if (!pinVerified) 'reason': 'err.pinWrong',
             });
             if (!pinVerified) {
               _registerFailedAttempt(remoteAddr);
@@ -165,7 +182,16 @@ class LyraTransferServer {
                 !pinVerified) {
               await channel.sendControlAndWait({
                 't': MsgType.error,
-                'reason': 'önce kimlik doğrulaması gerekli',
+                'reason': 'err.pinRequired',
+              });
+              done = true;
+              break;
+            }
+            // Meşgul kuralı: eşzamanlı gelen transfer sınırı.
+            if (_activeIncoming >= maxConcurrentIncoming) {
+              await channel.sendControlAndWait({
+                't': MsgType.reject,
+                'reason': 'err.busy',
               });
               done = true;
               break;
@@ -191,20 +217,24 @@ class LyraTransferServer {
             );
             onJobCreated?.call(job);
 
+            // Kullanıcı kararı beklenirken karşı tarafa "bekliyor" bildir.
+            channel.sendControl({'t': MsgType.pending});
             final decision = await policy.onOffer(offer, peer,
                 pinVerified: pinVerified);
             if (!decision.accepted) {
               await channel.sendControlAndWait({
                 't': MsgType.reject,
-                'reason': decision.reason ?? 'reddedildi',
+                'reason': decision.reason ?? 'err.userRejected',
               });
               job.state = JobState.cancelled;
-              job.error = decision.reason ?? 'reddedildi';
+              job.error = decision.reason ?? 'err.userRejected';
               job.finishedAt = DateTime.now();
               onJobFinished?.call(job);
               done = true;
               break;
             }
+            _activeIncoming++;
+            counted = true;
 
             // Devam ettirme: yarım dosyaların boyutlarını bildir.
             // Çakışma yönetimi: hedef ad doluysa `ad (2).ext` üretilir ve
@@ -238,6 +268,23 @@ class LyraTransferServer {
             job.state = JobState.transferring;
             onJobUpdated?.call(job);
 
+            // O-18: metin mesajı kalıcı olarak diske kaydedilir.
+            final text = offer.text;
+            if (text != null && text.trim().isNotEmpty) {
+              try {
+                final stamp = DateTime.now()
+                    .toIso8601String()
+                    .replaceAll(':', '')
+                    .split('.');
+                final name = sanitizeFileName('mesaj-${stamp.first}.txt');
+                final textPath = safeJoin(saveDir, name);
+                await File(textPath).writeAsString(text);
+                job.textSavedPath = textPath;
+              } catch (_) {
+                // Kaydetme başarısız olsa transfer sürer.
+              }
+            }
+
           case MsgType.fileStart:
             final fileId = data['file'] as String? ?? '';
             currentFile = job?.files.cast<FileTransfer?>().firstWhere(
@@ -251,32 +298,6 @@ class LyraTransferServer {
             currentPartPath = partPath;
             final part = File(partPath);
             await part.parent.create(recursive: true);
-            hasher = sha256.startChunkedConversion(sink);
-            if (offset > 0) {
-              // Y-7: resume'da mevcut yarım dosyanın başı da hash
-              // zincirine katılır; böylece eski verideki bozulma da
-              // tespit edilir.
-              final prefixLen = await part.length();
-              if (prefixLen < offset) {
-                throw LyraProtocolException(
-                    'resume ofseti dosyadan büyük ($prefixLen < $offset)');
-              }
-              final praf = await part.open();
-              try {
-                var remaining = offset;
-                while (remaining > 0) {
-                  final n = remaining > LyraProtocol.chunkSize
-                      ? LyraProtocol.chunkSize
-                      : remaining;
-                  final buf = await praf.read(n);
-                  if (buf.isEmpty) break;
-                  hasher.add(buf);
-                  remaining -= buf.length;
-                }
-              } finally {
-                await praf.close();
-              }
-            }
             raf = await part.open(
                 mode: offset > 0 ? FileMode.append : FileMode.write);
             if (offset > 0) {
@@ -292,26 +313,9 @@ class LyraTransferServer {
             final activeJob = job;
             if (file != null && currentPartPath != null && activeJob != null) {
               final expected = data['sha256'] as String?;
-              hasher?.close();
-              hasher = null;
-              if (expected != null &&
-                  sink.value.isNotEmpty &&
-                  sink.value != expected) {
-                file.error = 'sha256 uyuşmuyor';
-                await channel.sendControlAndWait({
-                  't': MsgType.error,
-                  'reason': 'sha256 uyuşmuyor',
-                });
-                activeJob.state = JobState.failed;
-                activeJob.error = 'sha256 uyuşmuyor';
-                activeJob.finishedAt = DateTime.now();
-                onJobUpdated?.call(activeJob);
-                done = true;
-                break;
-              }
+              // Y-6: nihai ad; hedef o arada dolmuşsa çakışma adı.
               final finalPath =
                   safeJoin(saveDir, file.relPath ?? file.name);
-              // Yarım dosya → nihai ad; hedef o arada dolmuşsa çakışma adı.
               var target = finalPath;
               if (await File(target).exists()) {
                 final resolved = await _resolveCollision(
@@ -321,6 +325,28 @@ class LyraTransferServer {
               }
               await File(currentPartPath).rename(target);
               file.savedPath = target;
+
+              // Bütünlük doğrulaması: tam dosya üzerinden, arka planda
+              // (Y-7 + O-17). Uyuşmazsa dosya yarım adıyla geri alınır.
+              if (expected != null && expected.isNotEmpty) {
+                final actual = await sha256OfFile(target);
+                if (actual != expected) {
+                  file.error = 'err.hashMismatch';
+                  try {
+                    await File(target).rename(currentPartPath);
+                  } catch (_) {}
+                  await channel.sendControlAndWait({
+                    't': MsgType.error,
+                    'reason': 'err.hashMismatch',
+                  });
+                  activeJob.state = JobState.failed;
+                  activeJob.error = 'err.hashMismatch';
+                  activeJob.finishedAt = DateTime.now();
+                  onJobUpdated?.call(activeJob);
+                  done = true;
+                  break;
+                }
+              }
               file.completed = true;
               currentPartPath = null;
               onJobUpdated?.call(activeJob);
@@ -363,6 +389,7 @@ class LyraTransferServer {
         onJobFinished?.call(job);
       }
     } finally {
+      if (counted && _activeIncoming > 0) _activeIncoming--;
       await raf?.close();
       queue.dispose();
     }
@@ -413,17 +440,4 @@ class LyraTransferServer {
     final bytes = List<int>.generate(16, (_) => rand.nextInt(256));
     return base64UrlEncode(bytes).replaceAll('=', '');
   }
-}
-
-/// SHA-256 sonuç sink'i.
-class _DigestSink implements Sink<Digest> {
-  String value = '';
-
-  @override
-  void add(Digest data) {
-    value = data.toString();
-  }
-
-  @override
-  void close() {}
 }

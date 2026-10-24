@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
 
 import '../models/device.dart';
 import '../models/transfer_job.dart';
+import '../utils/hash_isolate.dart';
 import 'lyra_channel.dart';
 import 'lyra_message.dart';
 import 'lyra_protocol.dart';
@@ -43,7 +43,7 @@ class LyraTransferClient {
         if (!abortSignal.isCompleted) abortSignal.complete();
         if (!job.isFinished) {
           job.state = JobState.cancelled;
-          job.error = data['reason'] as String? ?? 'karşı taraf iptal etti';
+          job.error = data['reason'] as String? ?? 'err.peerCancelled';
           job.finishedAt = DateTime.now();
           onChanged?.call();
         }
@@ -52,7 +52,7 @@ class LyraTransferClient {
         if (!abortSignal.isCompleted) abortSignal.complete();
         if (!job.isFinished) {
           job.state = JobState.failed;
-          job.error = data['reason'] as String? ?? 'karşı taraf hatası';
+          job.error = data['reason'] as String? ?? 'err.peerError';
           job.finishedAt = DateTime.now();
           onChanged?.call();
         }
@@ -74,7 +74,7 @@ class LyraTransferClient {
       final auth = await authWait;
       if (auth['ok'] != true) {
         throw LyraProtocolException(
-            auth['reason'] as String? ?? 'PIN reddedildi');
+            auth['reason'] as String? ?? 'err.pinWrong');
       }
 
       // 2) Teklif
@@ -114,7 +114,7 @@ class LyraTransferClient {
 
       if (decision['t'] == MsgType.reject) {
         job.state = JobState.cancelled;
-        job.error = decision['reason'] as String? ?? 'karşı taraf reddetti';
+        job.error = decision['reason'] as String? ?? 'err.userRejected';
         job.finishedAt = DateTime.now();
         onChanged?.call();
         return;
@@ -168,7 +168,7 @@ class LyraTransferClient {
       if (aborted) return;
       if (!acked) {
         job.state = JobState.failed;
-        job.error = 'karşı taraftan onay alınamadı';
+        job.error = 'err.noAck';
         job.finishedAt = DateTime.now();
         onChanged?.call();
         return;
@@ -200,22 +200,11 @@ class LyraTransferClient {
     void Function()? onChanged,
   ) async {
     final raf = await file.open();
-    final sink = _DigestSink();
-    final hasher = sha256.startChunkedConversion(sink);
     try {
       if (offset > 0) {
-        // Y-7: resume'da atlanan baş kısım da hash zincirine katılır;
-        // gönderilen öz, dosyanın tamamını kapsar.
-        var remaining = offset;
-        while (remaining > 0) {
-          final n = remaining > LyraProtocol.chunkSize
-              ? LyraProtocol.chunkSize
-              : remaining;
-          final buf = await raf.read(n);
-          if (buf.isEmpty) break;
-          hasher.add(buf);
-          remaining -= buf.length;
-        }
+        // Resume: atlanan baş kısım istenmez; ilerleme göstergesi için
+        // iş sayacı offset kadar ileri alınır.
+        await raf.setPosition(offset);
         ft.done = offset;
         job.transferred += offset;
         onChanged?.call();
@@ -229,25 +218,26 @@ class LyraTransferClient {
 
       var chunk = await raf.read(LyraProtocol.chunkSize);
       while (chunk.isNotEmpty) {
-        hasher.add(chunk);
         channel.sendData(chunk);
         ft.done += chunk.length;
         job.transferred += chunk.length;
         onChanged?.call();
         chunk = await raf.read(LyraProtocol.chunkSize);
       }
-      hasher.close();
-      channel.sendControl({
-        't': MsgType.fileEnd,
-        'job': job.id,
-        'file': fileId,
-        'sha256': sink.value,
-      });
       ft.completed = true;
       onChanged?.call();
     } finally {
       await raf.close();
     }
+    // Bütünlük özeti: tam dosya üzerinden, UI isolate'inden ayrı (O-17).
+    // Resume edilmiş aktarımlarda da tüm dosya kapsanır (Y-7).
+    final digest = await sha256OfFile(file.path);
+    channel.sendControl({
+      't': MsgType.fileEnd,
+      'job': job.id,
+      'file': fileId,
+      'sha256': digest,
+    });
   }
 
   static String _baseName(String path) {
@@ -268,17 +258,4 @@ class LyraTransferClient {
     if (lower.endsWith('.zip')) return 'application/zip';
     return 'application/octet-stream';
   }
-}
-
-/// SHA-256 chunked dönüşümü için sonucu tutan sink.
-class _DigestSink implements Sink<Digest> {
-  String value = '';
-
-  @override
-  void add(Digest data) {
-    value = data.toString();
-  }
-
-  @override
-  void close() {}
 }

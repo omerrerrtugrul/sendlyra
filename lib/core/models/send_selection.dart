@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 /// Gönderim için seçilen bir kök öğe (dosya veya klasör).
 class SendSelection {
@@ -80,15 +81,80 @@ class SendFileEntry {
 }
 
 /// Seçimleri gönderilecek dosya listesine açar.
+///
+/// Farklı köklerden gelen aynı göreli yollar sessizce atılmaz (O-31);
+/// çakışan yola kök öneki eklenerek tekilleştirilir.
 List<SendFileEntry> expandSelections(List<SendSelection> selections) {
   final out = <SendFileEntry>[];
   final seen = <String>{};
   for (final selection in selections) {
     for (final entry in selection.expand()) {
-      if (seen.add(entry.relPath)) {
-        out.add(entry);
+      var rel = entry.relPath;
+      if (!seen.add(rel)) {
+        var i = 2;
+        var candidate = '${selection.displayName}-$rel';
+        while (!seen.add(candidate)) {
+          i++;
+          candidate = '$i-${selection.displayName}-$rel';
+        }
+        rel = candidate;
+        out.add(SendFileEntry(
+            file: entry.file, relPath: rel, size: entry.size));
+        continue;
+      }
+      out.add(entry);
+    }
+  }
+  return out;
+}
+
+/// [expandSelections] ile aynı işi, dosya sistemi taramasını arka plan
+/// isolate'inde yaparak yapar (O-30): büyük klasörlerde UI donmaz.
+Future<List<SendFileEntry>> expandSelectionsAsync(
+    List<SendSelection> selections) async {
+  final scanned = await Isolate.run(() {
+    final out = <Map<String, Object?>>[];
+    for (final selection in selections) {
+      for (final entry in selection.expand()) {
+        out.add({
+          'path': entry.file.path,
+          'rel': entry.relPath,
+          'size': entry.size,
+        });
       }
     }
+    return out;
+  });
+  final entries = [
+    for (final item in scanned)
+      SendFileEntry(
+        file: File(item['path'] as String),
+        relPath: item['rel'] as String,
+        size: item['size'] as int?,
+      ),
+  ];
+  // Tekilleştirme aynı kuralla yapılır.
+  final out = <SendFileEntry>[];
+  final seen = <String>{};
+  for (var i = 0; i < entries.length; i++) {
+    final entry = entries[i];
+    var rel = entry.relPath;
+    if (!seen.add(rel)) {
+      final root = selections
+          .map((s) => s.displayName)
+          .firstWhere((_) => true, orElse: () => 'kok');
+      var candidate = '$root-$rel';
+      var n = 2;
+      while (!seen.add(candidate)) {
+        n++;
+        candidate = '$n-$root-$rel';
+      }
+      rel = candidate;
+      out.add(
+          SendFileEntry(file: entry.file, relPath: rel, size: entry.size));
+      continue;
+    }
+    out.add(entry);
   }
   return out;
 }

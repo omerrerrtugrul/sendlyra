@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../protocol/lyra_crypto.dart';
 import '../protocol/lyra_message.dart';
 import '../protocol/lyra_protocol.dart';
+import 'secret_store.dart';
 
 /// Cihazın kalıcı kimliği: id, takma ad, X25519 anahtar çifti, parmak izi.
 class IdentityService extends ChangeNotifier {
@@ -27,10 +28,16 @@ class IdentityService extends ChangeNotifier {
 
   final SharedPreferences prefs;
 
-  IdentityService(this.prefs);
+  /// Özel anahtarın güvenli saklanması (O-13): platform kasası,
+  /// erişilemezse düz metin yedeğine düşer.
+  final SecretStore secrets;
 
-  static Future<IdentityService> load(SharedPreferences prefs) async {
-    final service = IdentityService(prefs);
+  IdentityService(this.prefs, {SecretStore? secrets})
+      : secrets = secrets ?? SecretStore(prefs);
+
+  static Future<IdentityService> load(SharedPreferences prefs,
+      {SecretStore? secrets}) async {
+    final service = IdentityService(prefs, secrets: secrets);
     await service._init();
     return service;
   }
@@ -38,7 +45,9 @@ class IdentityService extends ChangeNotifier {
   Future<void> _init() async {
     deviceId = prefs.getString(_kDeviceId) ?? _generateId();
     alias = prefs.getString(_kAlias) ?? _defaultAlias();
-    _privateKeyB64 = prefs.getString(_kPrivateKey) ?? '';
+    // Özel anahtar yalnızca güvenli kasada saklanır (eski düz metin
+    // kopya varsa SecretStore.read otomatik taşır).
+    _privateKeyB64 = await secrets.read(_kPrivateKey) ?? '';
     publicKeyBase64 = prefs.getString(_kPublicKey) ?? '';
     fingerprint = prefs.getString(_kFingerprint) ?? '';
 
@@ -51,6 +60,8 @@ class IdentityService extends ChangeNotifier {
       _keyPair = keyPair;
       await _persist();
     } else {
+      // Eski düz metin kayıttan kasaya geçişi tamamla.
+      await secrets.write(_kPrivateKey, _privateKeyB64);
       _keyPair = await LyraCryptoIdentity.importPrivateKey(
         _privateKeyB64,
         base64Decode(publicKeyBase64),
@@ -61,7 +72,7 @@ class IdentityService extends ChangeNotifier {
   Future<void> _persist() async {
     await prefs.setString(_kDeviceId, deviceId);
     await prefs.setString(_kAlias, alias);
-    await prefs.setString(_kPrivateKey, _privateKeyB64);
+    await secrets.write(_kPrivateKey, _privateKeyB64);
     await prefs.setString(_kPublicKey, publicKeyBase64);
     await prefs.setString(_kFingerprint, fingerprint);
   }

@@ -110,7 +110,9 @@ class TransferCard extends StatelessWidget {
                   ),
                   AnimatedFractionallySizedBox(
                     duration: const Duration(milliseconds: 250),
-                    widthFactor: job.totalBytes > 0 ? progress : 1,
+                    widthFactor: job.totalBytes > 0
+                        ? progress
+                        : (job.isFinished ? 1 : 0),
                     heightFactor: 1,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
@@ -161,7 +163,7 @@ class TransferCard extends StatelessWidget {
             if (isError && job.error != null) ...[
               const SizedBox(height: 6),
               Text(
-                job.error!,
+                s.errorText(job.error),
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall

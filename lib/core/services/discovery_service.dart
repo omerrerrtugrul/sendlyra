@@ -19,6 +19,7 @@ class DiscoveryBeacon {
   final int port;
   final String publicKeyBase64;
   final String fingerprint;
+  final bool busy;
   final DateTime receivedAt;
 
   const DiscoveryBeacon({
@@ -30,6 +31,7 @@ class DiscoveryBeacon {
     required this.port,
     required this.publicKeyBase64,
     required this.fingerprint,
+    required this.busy,
     required this.receivedAt,
   });
 
@@ -44,6 +46,7 @@ class DiscoveryBeacon {
       port: (json['port'] as num?)?.toInt() ?? LyraProtocol.defaultTransferPort,
       publicKeyBase64: (json['pk'] as String?) ?? '',
       fingerprint: (json['fp'] as String?) ?? '',
+      busy: (json['busy'] as bool?) ?? false,
       receivedAt: now,
     );
   }
@@ -59,6 +62,9 @@ class BeaconIdentity {
   final String publicKeyBase64;
   final String fingerprint;
 
+  /// Meşgul durumu: cihazda aktif transfer var mı? (beacon'da yayınlanır)
+  final bool busy;
+
   const BeaconIdentity({
     required this.id,
     required this.name,
@@ -67,6 +73,7 @@ class BeaconIdentity {
     required this.port,
     required this.publicKeyBase64,
     required this.fingerprint,
+    this.busy = false,
   });
 }
 
@@ -149,6 +156,7 @@ class DiscoveryService {
       'port': self.port,
       'pk': self.publicKeyBase64,
       'fp': self.fingerprint,
+      'busy': self.busy,
       'ts': DateTime.now().millisecondsSinceEpoch,
     };
     final bytes = utf8.encode(jsonEncode(payload));
@@ -181,6 +189,7 @@ class DiscoveryService {
         publicKeyBase64: beacon.publicKeyBase64,
         fingerprint: beacon.fingerprint,
         lastSeen: beacon.receivedAt,
+        busy: beacon.busy,
       );
       final isNew = !_devices.containsKey(id);
       _devices[id] = device;

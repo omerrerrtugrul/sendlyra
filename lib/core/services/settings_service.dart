@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'secret_store.dart';
+
 /// Uygulama ayarları (kalıcı).
 class SettingsService extends ChangeNotifier {
   static const _kSaveDir = 'settings.saveDir';
@@ -20,10 +22,15 @@ class SettingsService extends ChangeNotifier {
 
   final SharedPreferences prefs;
 
+  /// PIN gibi gizli değerlerin güvenli saklanması (O-13).
+  final SecretStore? secrets;
+
   late String saveDir;
   late ThemeMode themeMode;
   late int accentIndex;
-  late bool requireApproval;
+
+  /// Tek kaynak (O-16): onay kipi yalnızca [quickSaveMode] ile belirlenir.
+  bool get requireApproval => quickSaveMode == 'off';
   /// 'off' = onay iste, 'all' = herkesten otomatik kabul,
   /// 'favorites' = yalnızca favorilerden otomatik kabul.
   late String quickSaveMode;
@@ -44,14 +51,15 @@ class SettingsService extends ChangeNotifier {
   late bool discoveryOn;
   late String localeCode;
 
-  SettingsService(this.prefs) {
+  SettingsService(this.prefs, {this.secrets}) {
     saveDir = prefs.getString(_kSaveDir) ?? '';
     themeMode = ThemeMode
         .values[prefs.getInt(_kThemeMode) ?? ThemeMode.system.index];
     accentIndex = prefs.getInt(_kAccent) ?? 0;
-    requireApproval = prefs.getBool(_kRequireApproval) ?? true;
-    quickSaveMode = prefs.getString(_kQuickSave) ??
-        (requireApproval ? 'off' : 'all');
+    // Eski `requireApproval` anahtarı yalnızca başlangıç değeri için.
+    final legacyApproval = prefs.getBool(_kRequireApproval) ?? true;
+    quickSaveMode =
+        prefs.getString(_kQuickSave) ?? (legacyApproval ? 'off' : 'all');
     pin = prefs.getString(_kPin);
     trustedFingerprints = prefs.getStringList(_kTrusted) ?? [];
     favoriteNames = _decodeFavorites(prefs.getString(_kFavorites));
@@ -79,9 +87,8 @@ class SettingsService extends ChangeNotifier {
   Future<void> setQuickSaveMode(String mode) async {
     quickSaveMode = mode;
     // Eski alanla uyumluluk: 'off' → onay iste.
-    requireApproval = mode == 'off';
     await prefs.setString(_kQuickSave, mode);
-    await prefs.setBool(_kRequireApproval, requireApproval);
+    await prefs.setBool(_kRequireApproval, mode == 'off');
     notifyListeners();
   }
 
@@ -144,13 +151,30 @@ class SettingsService extends ChangeNotifier {
   }
 
   Future<void> setRequireApproval(bool value) async {
-    requireApproval = value;
-    await prefs.setBool(_kRequireApproval, value);
+    await setQuickSaveMode(value ? 'off' : 'all');
+  }
+
+  /// PIN'i güvenli kasadan yükler (uygulama başlangıcında çağrılır).
+  Future<void> loadSecrets() async {
+    final store = secrets;
+    if (store == null) return;
+    final value = await store.read(_kPin);
+    pin = (value == null || value.isEmpty) ? null : value;
     notifyListeners();
   }
 
   Future<void> setPin(String? value) async {
     pin = (value == null || value.isEmpty) ? null : value;
+    final store = secrets;
+    if (store != null) {
+      if (pin == null) {
+        await store.delete(_kPin);
+      } else {
+        await store.write(_kPin, pin!);
+      }
+      notifyListeners();
+      return;
+    }
     if (pin == null) {
       await prefs.remove(_kPin);
     } else {

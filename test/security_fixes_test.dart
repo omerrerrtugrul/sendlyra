@@ -149,7 +149,7 @@ void main() {
 
       // Sunucu hata ile karşılık vermeli; politika asla çağrılmamalı.
       final error = await errorWait;
-      expect(error.data['reason'], 'önce kimlik doğrulaması gerekli');
+      expect(error.data['reason'], 'err.pinRequired');
       expect(onOfferCalled, isFalse);
     });
 
@@ -196,7 +196,7 @@ void main() {
         lastReason = result.data['reason'];
         channel.close();
       }
-      expect(lastReason, 'çok fazla hatalı deneme');
+      expect(lastReason, 'err.tooManyAttempts');
     });
   });
 

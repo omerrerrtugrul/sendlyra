@@ -21,6 +21,29 @@ class AppStrings {
     return dict[key] ?? _tr[key] ?? key;
   }
 
+  /// Hata kodunu yerel metne çevirir (O-20). Bilinmeyen değerler
+  /// olduğu gibi döner; böylece ayrıntı kaybolmaz.
+  String errorText(String? code) {
+    if (code == null || code.isEmpty) return '';
+    const keys = {
+      'err.pinRequired': 'errPinRequired',
+      'err.pinWrong': 'errPinWrong',
+      'err.tooManyAttempts': 'errTooManyAttempts',
+      'err.fingerprintChanged': 'errFingerprintChanged',
+      'err.hashMismatch': 'errHashMismatch',
+      'err.sizeMismatch': 'errSizeMismatch',
+      'err.busy': 'errBusy',
+      'err.userRejected': 'errUserRejected',
+      'err.timeout': 'errTimeout',
+      'err.localCancel': 'errLocalCancel',
+      'err.peerCancelled': 'errPeerCancelled',
+      'err.peerError': 'errPeerError',
+      'err.noAck': 'errNoAck',
+    };
+    final key = keys[code];
+    return key != null ? t(key) : code;
+  }
+
   static const Map<String, String> _tr = {
     'appName': 'SendLyra',
     'tagline': 'Yerel ağında özgürce paylaş',
@@ -143,6 +166,29 @@ class AppStrings {
     'startupError': 'Bazı servisler başlatılamadı',
     'files': 'dosya',
     'copied': 'Kopyalandı',
+
+    // Durumlar ve hata mesajları
+    'busy': 'Meşgul',
+    'errPinRequired': 'Önce kimlik doğrulaması gerekli',
+    'errPinWrong': 'PIN hatalı',
+    'errTooManyAttempts': 'Çok fazla hatalı deneme — geçici olarak kilitlendi',
+    'errFingerprintChanged': 'Cihazın parmak izi değişti — bağlantı reddedildi',
+    'errHashMismatch': 'Bütünlük doğrulaması başarısız',
+    'errSizeMismatch': 'Dosya boyutu uyuşmuyor',
+    'errBusy': 'Cihaz meşgul — birazdan tekrar dene',
+    'errUserRejected': 'Karşı taraf reddetti',
+    'errTimeout': 'Zaman aşımı',
+    'errLocalCancel': 'Yerel olarak iptal edildi',
+    'errPeerCancelled': 'Karşı taraf iptal etti',
+    'errPeerError': 'Karşı taraf hatası',
+    'errNoAck': 'Karşı taraftan onay alınamadı',
+
+    // Geçmiş detayı
+    'historyDetail': 'Aktarım detayı',
+    'historyDelete': 'Kaydı sil',
+    'savedAt': 'Kaydedilen yer',
+    'savedMessage': 'Mesaj kaydedildi',
+    'noSavedPath': 'Kaydedilen yol yok',
   };
 
   static const Map<String, String> _en = {
@@ -262,5 +308,26 @@ class AppStrings {
     'startupError': 'Some services could not start',
     'files': 'files',
     'copied': 'Copied',
+
+    'busy': 'Busy',
+    'errPinRequired': 'Authentication required first',
+    'errPinWrong': 'Wrong PIN',
+    'errTooManyAttempts': 'Too many failed attempts — temporarily locked',
+    'errFingerprintChanged': 'Device fingerprint changed — connection rejected',
+    'errHashMismatch': 'Integrity check failed',
+    'errSizeMismatch': 'File size mismatch',
+    'errBusy': 'Device is busy — try again shortly',
+    'errUserRejected': 'Rejected by the other side',
+    'errTimeout': 'Timed out',
+    'errLocalCancel': 'Cancelled locally',
+    'errPeerCancelled': 'Cancelled by the other side',
+    'errPeerError': 'Peer error',
+    'errNoAck': 'No confirmation from receiver',
+
+    'historyDetail': 'Transfer details',
+    'historyDelete': 'Delete entry',
+    'savedAt': 'Saved at',
+    'savedMessage': 'Message saved',
+    'noSavedPath': 'No saved path',
   };
 }
