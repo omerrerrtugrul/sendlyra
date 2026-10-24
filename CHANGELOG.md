@@ -4,6 +4,26 @@ Bu dosya SendLyra sürümleri arasındaki önemli değişiklikleri kaydeder.
 
 ## [Unreleased]
 
+### 🌐 Faz 4 — Tarayıcı Paylaşımı (W-01…W-05, bu sürüm)
+- **W-01 Web sunucu modu:** uygulama içinden başlat/durdur; LAN IP + port ile
+  erişim linki, QR, kopyala; yeni **"Web" sekmesi**.
+- **W-02 İndirme sayfası:** tarayıcıdan dosya listesi, tekil indirme ve
+  **toplu indirme** (yerel `ZipWriter` — streaming, bellek dostu, ZIP
+  uyumluluğu python `zipfile` ile doğrulandı).
+- **W-03 Yükleme sayfası:** tarayıcıdan sürükle-bırak / dosya seçici ile
+  yükleme; yüklemeler kayıt klasörüne düşer (`ad (2).ext` çakışma kuralı),
+  geçmişe "alınan" kayıt olarak geçer.
+- **W-04 Web PIN + oturum:** PIN güvenli kasada saklanır (R-2 disiplini),
+  sabit zamanlı karşılaştırma; IP başına token'lı oturum çerezi.
+- **W-05 Güvenlik:** yalnız yerel aralık erişimi (genel IP'ler reddedilir),
+  HTTP'de net uyarı; isteğe bağlı HTTPS (kullanıcı sertifika/anahtarı ile
+  `bindSecure`).
+- 🧪 8 yeni test: yerel aralık filtresi, ZIP yapısı + CRC, index/indirme,
+  yükleme + çakışma, PIN/oturum akışı, HTTP uyarısı. Toplam **86/86 yeşil**.
+- 🔧 **Test altyapısı:** port yarışı düzeltmesi (`port: 0` + `boundPort`) —
+  paralel test yükünde sunucuların yanlış portu ele geçirmesi flake'ları
+  giderildi; golden'lar yeni sekme ile güncellendi.
+
 ### ✨ Faz 3 — Deneyim Tamamlama (E-02 / E-03 / E-04, bu sürüm)
 - **E-02 Panodan gönderim:** cihaz menüsünden "Panodan gönder" — pano metni
   önizleme onayıyla doğrudan hedefe yollanır; boş pano uyarısı.

@@ -8,6 +8,7 @@ import 'core/services/notification_service.dart';
 import 'core/services/secret_store.dart';
 import 'core/services/settings_service.dart';
 import 'core/services/transfer_service.dart';
+import 'core/services/web_share_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +29,12 @@ Future<void> main() async {
       history: history,
       notifier: notifier,
     );
+    // W-01: web paylaşım sunucusu (kullanıcı açana kadar çalışmaz).
+    final webShare = WebShareService(
+      settings: settings,
+      history: history,
+      saveDirResolver: transfer.resolveSaveDir,
+    );
 
     String? startupError;
     try {
@@ -42,6 +49,7 @@ Future<void> main() async {
       settings: settings,
       history: history,
       transfer: transfer,
+      webShare: webShare,
       startupError: startupError,
     ));
   } catch (e) {

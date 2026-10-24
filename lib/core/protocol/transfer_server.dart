@@ -42,6 +42,10 @@ class LyraTransferServer {
   final void Function(TransferJob job)? onJobFinished;
 
   ServerSocket? _server;
+
+  /// Gerçek bağlı port — [port] 0 ise çekirdeğin atadığı geçici port.
+  /// Testler ve dinamik port ayrılmaları yarışa karşı bunu kullanır.
+  int get boundPort => _server?.port ?? port;
   final _connections = <LyraChannel>{};
 
   /// PIN deneme kilidi: adres → başarısız deneme zamanları.

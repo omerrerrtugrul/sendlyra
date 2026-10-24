@@ -6,6 +6,7 @@ import 'package:sendlyra/core/services/history_service.dart';
 import 'package:sendlyra/core/services/identity_service.dart';
 import 'package:sendlyra/core/services/settings_service.dart';
 import 'package:sendlyra/core/services/transfer_service.dart';
+import 'package:sendlyra/core/services/web_share_service.dart';
 import 'helpers/fake_secret_store.dart';
 
 Future<void> settle(WidgetTester tester) async {
@@ -28,11 +29,13 @@ Future<TransferService> pumpApp(WidgetTester tester) async {
     settings: settings,
     history: history,
   );
+  final webShare = WebShareService(settings: settings, history: history);
   await tester.pumpWidget(SendLyraApp(
     identity: identity,
     settings: settings,
     history: history,
     transfer: transfer,
+    webShare: webShare,
   ));
   await settle(tester);
   return transfer;

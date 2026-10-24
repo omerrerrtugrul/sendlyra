@@ -33,14 +33,6 @@ Future<HelloInfo> _hello(SimpleKeyPair keyPair, {String id = 'peer'}) async {
   );
 }
 
-/// Boş port bulur ve kapatır (sunucu o portta açılır).
-Future<int> _freePort() async {
-  final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-  final port = probe.port;
-  await probe.close();
-  return port;
-}
-
 /// Servis test yığını: gerçek ağ yok, sahte güvenli kasa.
 Future<(TransferService, FakeTransferNotifier)> _service() async {
   SharedPreferences.setMockInitialValues({});
@@ -100,13 +92,12 @@ void main() {
       final serverHello = await _hello(serverKp, id: 'server');
       final saveDir = Directory.systemTemp.createTempSync('lyra-queue-test');
       addTearDown(() => saveDir.deleteSync(recursive: true));
-      final port = await _freePort();
 
       var offers = 0;
       final server = LyraTransferServer(
         localInfo: serverHello,
         keyPair: serverKp,
-        port: port,
+        port: 0, // çekirdek ephemeral port atar — port yarışı olmaz
         saveDir: saveDir.path,
         policy: ServerPolicy(
           pin: () => null,
@@ -129,7 +120,7 @@ void main() {
         os: 'linux',
         deviceType: 'desktop',
         address: InternetAddress.loopbackIPv4.address,
-        port: port,
+        port: server.boundPort,
         publicKeyBase64: '',
         fingerprint: serverHello.fingerprint,
         lastSeen: DateTime.now(),

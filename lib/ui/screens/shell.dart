@@ -13,6 +13,7 @@ import '../widgets/qr_sheet.dart';
 import 'devices_page.dart';
 import 'settings_page.dart';
 import 'transfers_page.dart';
+import 'web_page.dart';
 
 /// Uygulama kabuğu: sekme navigasyonu + gelen tekliflerin yönetimi.
 class ShellScreen extends StatefulWidget {
@@ -87,6 +88,7 @@ class _ShellScreenState extends State<ShellScreen> {
     final pages = [
       DevicesPage(onGoToTransfers: () => setState(() => _index = 1)),
       const TransfersPage(),
+      const WebSharePage(),
       const SettingsPage(),
     ];
 
@@ -180,6 +182,10 @@ class _ShellScreenState extends State<ShellScreen> {
                   label: Text(s.t('tabTransfers')),
                 ),
                 NavigationRailDestination(
+                  icon: const Icon(Icons.public_rounded),
+                  label: Text(s.t('tabWeb')),
+                ),
+                NavigationRailDestination(
                   icon: const Icon(Icons.settings_rounded),
                   label: Text(s.t('tabSettings')),
                 ),
@@ -211,6 +217,10 @@ class _ShellScreenState extends State<ShellScreen> {
                 NavigationDestination(
                   icon: const Icon(Icons.swap_vert_rounded),
                   label: s.t('tabTransfers'),
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.public_rounded),
+                  label: s.t('tabWeb'),
                 ),
                 NavigationDestination(
                   icon: const Icon(Icons.settings_rounded),

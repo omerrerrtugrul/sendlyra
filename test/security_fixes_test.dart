@@ -106,16 +106,11 @@ void main() {
       final saveDir = Directory.systemTemp.createTempSync('lyra-pin-test');
       addTearDown(() => saveDir.deleteSync(recursive: true));
 
-      // Boş port bul, sonra sunucuyu o portta başlat.
-      final probe =
-          await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-      final port = probe.port;
-      await probe.close();
-
+      // port 0: çekirdek ephemeral port atar — port yarışı olmaz.
       final server = LyraTransferServer(
         localInfo: serverHello,
         keyPair: serverKp,
-        port: port,
+        port: 0,
         saveDir: saveDir.path,
         policy: ServerPolicy(
           pin: () => '1234',
@@ -128,8 +123,8 @@ void main() {
       await server.start();
       addTearDown(server.stop);
 
-      final socket =
-          await Socket.connect(InternetAddress.loopbackIPv4, port);
+      final socket = await Socket.connect(
+          InternetAddress.loopbackIPv4, server.boundPort);
       final channel = LyraChannel(socket, isClient: true);
       addTearDown(channel.close);
       await channel.handshake(clientHello, keyPair: clientKp);
@@ -161,15 +156,11 @@ void main() {
 
       final saveDir = Directory.systemTemp.createTempSync('lyra-pin-test2');
       addTearDown(() => saveDir.deleteSync(recursive: true));
-      final listener =
-          await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-      final port = listener.port;
-      await listener.close();
 
       final server = LyraTransferServer(
         localInfo: serverHello,
         keyPair: serverKp,
-        port: port,
+        port: 0,
         saveDir: saveDir.path,
         policy: ServerPolicy(
           pin: () => '1234',
@@ -183,8 +174,8 @@ void main() {
       // 5 hatalı deneme → kilitleme; 6. denemede "çok fazla hatalı".
       Object? lastReason;
       for (var i = 0; i < 6; i++) {
-        final socket =
-            await Socket.connect(InternetAddress.loopbackIPv4, port);
+        final socket = await Socket.connect(
+            InternetAddress.loopbackIPv4, server.boundPort);
         final channel = LyraChannel(socket, isClient: true);
         await channel.handshake(clientHello, keyPair: clientKp);
         final wait = channel.events

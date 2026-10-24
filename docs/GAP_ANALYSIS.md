@@ -70,6 +70,15 @@ tema/dil/port ayarları, QR, sunucu yeniden başlatma.
 > Yeni eklenenler: **QR tarama yok** (yeni madde #16), LICENSE/CHANGELOG
 > (CHANGELOG eklendi; LICENSE için lisans kararı bekleniyor).
 
+## ✅ Tamamlandı (25 Ekim — Faz 4: tarayıcı paylaşımı)
+- 🌐 **W-01…W-05** tamamlandı: uygulama içi web sunucu, indirme sayfası
+  (tekil + ZIP toplu), yükleme sayfası (sürükle-bırak), web PIN + oturum,
+  yalnız yerel ağ + HTTP uyarısı + isteğe bağlı HTTPS.
+- 🧪 Doğrulama: **86/86 test** (8 yeni) + `flutter analyze` temiz; ZIP
+  çıktısı python `zipfile.testzip()` ile harici doğrulandı.
+- Not: gerçek tarayıcı/cihaz testi (telefon → tarayıcı → indir/yükle)
+  kullanıcı tarafından yapılacak — Faz 4 çıkış kriteri.
+
 ## ✅ Tamamlandı (25 Ekim — Faz 3: deneyim tamamlama)
 - 📋 **E-02 Panodan gönderim** — cihaz menüsünden pano metni gönderimi
   (önizleme onayı + boş pano uyarısı)
@@ -87,7 +96,7 @@ tema/dil/port ayarları, QR, sunucu yeniden başlatma.
 ### Büyük özellikler
 | # | Özellik | Not |
 |---|---|---|
-| 1 | 🌐 Tarayıcı paylaşımı (link ile ver/al, web PIN, HTTP/HTTPS) | Yerleşik web sunucusu + sayfa |
+| 1 | ✅ 🌐 Tarayıcı paylaşımı (link ile ver/al, web PIN, HTTP/HTTPS) — tamamlandı (Faz 4, W-01…W-05) | Yerleşik web sunucusu + sayfa |
 | 2 | 📡 Uzak ağ WebRTC + sinyal sunucusu (WebSocket) + STUN | Ağ altyapısı |
 | 3 | 🖥️ sendlyra-cli terminal istemcisi | Ayrı paket |
 

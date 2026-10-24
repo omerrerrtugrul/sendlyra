@@ -18,6 +18,10 @@ class SettingsService extends ChangeNotifier {
   static const _kKnownPeers = 'settings.knownPeers';
   static const _kTransferPort = 'settings.transferPort';
   static const _kDiscoveryOn = 'settings.discoveryOn';
+  static const _kWebPort = 'settings.webPort';
+  static const _kWebPin = 'settings.webPin';
+  static const _kWebTlsCert = 'settings.webTlsCert';
+  static const _kWebTlsKey = 'settings.webTlsKey';
   static const _kLocale = 'settings.locale';
   static const _kTrustNoticeShown = 'settings.trustMigrationNoticeShown';
 
@@ -50,6 +54,16 @@ class SettingsService extends ChangeNotifier {
 
   late int transferPort;
   late bool discoveryOn;
+
+  /// W-01: web paylaşım sunucusu portu.
+  late int webPort;
+
+  /// W-04: web PIN (tarayıcı oturumu için) — cihaz PIN'inden ayrı.
+  late String? webPin;
+
+  /// W-05: HTTPS için isteğe bağlı sertifika/anahtar yolları.
+  late String webTlsCert;
+  late String webTlsKey;
   late String localeCode;
 
   SettingsService(this.prefs, {this.secrets}) {
@@ -70,10 +84,15 @@ class SettingsService extends ChangeNotifier {
     knownPeers = _decodeFavorites(prefs.getString(_kKnownPeers));
     transferPort = prefs.getInt(_kTransferPort) ?? 47802;
     discoveryOn = prefs.getBool(_kDiscoveryOn) ?? true;
+    webPort = prefs.getInt(_kWebPort) ?? 8765;
+    webPin = (secrets == null) ? prefs.getString(_kWebPin) : null;
+    webTlsCert = prefs.getString(_kWebTlsCert) ?? '';
+    webTlsKey = prefs.getString(_kWebTlsKey) ?? '';
     localeCode = prefs.getString(_kLocale) ?? 'tr';
   }
 
   bool get hasPin => pin != null && pin!.isNotEmpty;
+  bool get hasWebPin => webPin != null && webPin!.isNotEmpty;
 
   /// Hızlı kaydetme kipi: gelen istekler otomatik kabul edilir mi?
   /// Karar her zaman doğrulanmış parmak izi üzerinden verilir.
@@ -184,6 +203,8 @@ class SettingsService extends ChangeNotifier {
     if (store == null) return;
     final value = await store.read(_kPin);
     pin = (value == null || value.isEmpty) ? null : value;
+    final webValue = await store.read(_kWebPin);
+    webPin = (webValue == null || webValue.isEmpty) ? null : webValue;
     notifyListeners();
   }
 
@@ -203,6 +224,47 @@ class SettingsService extends ChangeNotifier {
       await prefs.remove(_kPin);
     } else {
       await prefs.setString(_kPin, pin!);
+    }
+    notifyListeners();
+  }
+
+  /// W-04: web PIN'i güvenli kasada saklar (R-2 ile aynı disiplin).
+  Future<void> setWebPin(String? value) async {
+    webPin = (value == null || value.isEmpty) ? null : value;
+    final store = secrets;
+    if (store != null) {
+      if (webPin == null) {
+        await store.delete(_kWebPin);
+      } else {
+        await store.write(_kWebPin, webPin!);
+      }
+      notifyListeners();
+      return;
+    }
+    if (webPin == null) {
+      await prefs.remove(_kWebPin);
+    } else {
+      await prefs.setString(_kWebPin, webPin!);
+    }
+    notifyListeners();
+  }
+
+  /// W-01: web sunucu portu.
+  Future<void> setWebPort(int value) async {
+    webPort = value;
+    await prefs.setInt(_kWebPort, value);
+    notifyListeners();
+  }
+
+  /// W-05: HTTPS sertifika/anahtar yolları (boş = düz HTTP).
+  Future<void> setWebTls({String? cert, String? key}) async {
+    if (cert != null) {
+      webTlsCert = cert;
+      await prefs.setString(_kWebTlsCert, cert);
+    }
+    if (key != null) {
+      webTlsKey = key;
+      await prefs.setString(_kWebTlsKey, key);
     }
     notifyListeners();
   }

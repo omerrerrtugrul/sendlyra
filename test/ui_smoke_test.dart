@@ -6,6 +6,7 @@ import 'package:sendlyra/core/services/history_service.dart';
 import 'package:sendlyra/core/services/identity_service.dart';
 import 'package:sendlyra/core/services/settings_service.dart';
 import 'package:sendlyra/core/services/transfer_service.dart';
+import 'package:sendlyra/core/services/web_share_service.dart';
 import 'helpers/fake_secret_store.dart';
 
 /// Sonsuz (repeat) animasyonlar nedeniyle `pumpAndSettle` kullanılmaz;
@@ -30,22 +31,25 @@ Future<TransferService> pumpApp(WidgetTester tester) async {
     settings: settings,
     history: history,
   );
+  final webShare = WebShareService(settings: settings, history: history);
 
   await tester.pumpWidget(SendLyraApp(
     identity: identity,
     settings: settings,
     history: history,
     transfer: transfer,
+    webShare: webShare,
   ));
   await settle(tester);
   return transfer;
 }
 
 void main() {
-  testWidgets('uygulama açılır ve üç sekme görünür', (tester) async {
+  testWidgets('uygulama açılır ve dört sekme görünür', (tester) async {
     await pumpApp(tester);
     expect(find.text('Cihazlar'), findsWidgets);
     expect(find.text('Transferler'), findsWidgets);
+    expect(find.text('Web'), findsWidgets);
     expect(find.text('Ayarlar'), findsWidgets);
     expect(find.byType(FloatingActionButton), findsOneWidget);
     expect(tester.takeException(), isNull);
