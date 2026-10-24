@@ -238,6 +238,7 @@ class LyraChannel {
       final header = ByteData(4)..setUint32(0, sealed.length);
       socket.add(header.buffer.asUint8List());
       socket.add(sealed);
+      await socket.flush();
     }).catchError((Object e) {
       fail(e is LyraProtocolException ? e : LyraProtocolException('$e'));
     });
