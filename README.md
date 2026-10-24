@@ -1,81 +1,90 @@
 # SendLyra
 
-**Yerel ağında özgürce paylaş.** Sunucusuz, şifreli, çapraz platform dosya ve
-mesaj paylaşım uygulaması.
+**Share freely on your local network.** A serverless, encrypted,
+cross-platform app for sharing files, folders, and messages.
 
-SendLyra, aynı yerel ağdaki cihazların birbirini otomatik bulup internet
-kullanmadan dosya, klasör ve metin aktarmasını sağlar. Kendi ağı
-(LyraLink) üzerinde çalışır; tüm kod ve protokol bu proje için özgün olarak
-tasarlanmıştır.
+SendLyra automatically discovers devices on the same local network and lets
+you transfer files, folders, and text without using the internet. It runs on
+its own LyraLink protocol and includes identity verification, PIN protection,
+trusted-device controls, and transfer integrity checks. The code and protocol
+are designed specifically for this project.
 
-## Özellikler
+## Features
 
-- **Otomatik keşif** — aynı ağdaki cihazlar saniyeler içinde listelenir
-  (UDP multicast).
-- **Uçtan uca şifreleme** — X25519 anahtar değişimi + ChaCha20-Poly1305;
-  ağdaki kimse içeriği okuyamaz.
-- **Çoklu aktarım** — eşzamanlı işler, ilerleme, hız ve kalan süre tahmini.
-- **Devam ettirme** — yarıda kalan aktarımlar kaldığı yerden sürer.
-- **Metin paylaşımı** — dosyaların yanında düz metin mesajları da gönderilir.
-- **PIN + onay + güvenilir cihazlar** — gelen aktarımları sen kontrol edersin.
-- **QR ile tanışma** — kendi bağlantı QR'ını göster, karşı taraf IP ile bağlanır.
-- **TR / EN arayüz**, açık-koyu tema, 4 vurgu rengi.
-- **Tamamen yerel** — hiçbir veri sunucuya gitmez, hesap gerekmez.
+- **Automatic discovery** — devices on the same network appear within seconds
+  using UDP multicast.
+- **End-to-end encryption** — X25519 key exchange with ChaCha20-Poly1305;
+  network observers cannot read transfer contents.
+- **Multiple transfers** — concurrent jobs with progress, speed, and
+  estimated remaining time.
+- **Folder and multi-recipient transfers** — folder structure is preserved and
+  files can be sent to multiple devices at once.
+- **Resume support** — interrupted transfers continue from where they stopped.
+- **Text sharing** — send plain-text messages alongside files.
+- **PIN, approval, and trusted devices** — you control incoming transfers, with
+  selectable quick-save approval modes.
+- **QR pairing** — show your connection QR code so the other side can connect
+  using your IP address.
+- **Drag and drop** — drop files and folders directly into the desktop window.
+- **TR / EN interface** — light and dark themes with four accent colors.
+- **Fully local** — no data is sent to a server and no account is required.
 
-## Mimari
+## Architecture
 
-```
+```text
 lib/
 ├── core/
-│   ├── protocol/        # LyraLink protokolü (keşif, kanal, transfer)
-│   ├── services/        # kimlik, ayarlar, keşif, transfer orkestrasyonu
-│   ├── models/          # cihaz, transfer işi, geçmiş modelleri
-│   └── utils/           # biçimlendirme yardımcıları
-└── ui/                  # tema, ekranlar, widget'lar (Material 3)
+│   ├── protocol/        # LyraLink protocol (discovery, channel, transfer)
+│   ├── services/        # identity, settings, discovery, history, transfer
+│   ├── models/          # device, selection, and transfer job models
+│   └── utils/           # formatting, hashing, multicast, and path safety
+└── ui/                  # theme, screens, and widgets (Material 3)
 ```
 
-Protokol detayları: [docs/PROTOCOL.md](docs/PROTOCOL.md)
+Protocol details: [docs/PROTOCOL.md](docs/PROTOCOL.md)
 
-## Geliştirme
+## Development
 
-Gereksinimler: [Flutter](https://docs.flutter.dev/get-started/install) 3.24+
+Requirements: [Flutter](https://docs.flutter.dev/get-started/install) 3.27+
 (Dart 3.4+).
 
 ```bash
 flutter pub get
-flutter run            # bağlı cihaz/emülatör
-flutter test           # birim testleri
-flutter analyze        # statik analiz
+flutter run            # connected device/emulator
+flutter test           # unit and integration tests
+flutter analyze        # static analysis
 ```
 
-### Platform derlemeleri
+### Platform builds
 
-| Platform | Komut | Not |
+| Platform | Command | Notes |
 |---|---|---|
-| Android | `flutter build apk --release` | Ağ izinleri manifestte tanımlı |
-| iOS | `flutter build ios --release` | Yerel ağ erişim açıklaması gerekir |
+| Android | `flutter build apk --release` | Network permissions are defined in the manifest |
+| iOS | `flutter build ios --release` | Requires a local-network access description |
 | Windows | `flutter build windows --release` | Windows 10+ |
-| macOS | `flutter build macos --release` | Yerel ağ izni gerekir |
-| Linux | `flutter build linux --release` | GTK 3 geliştirme paketleri |
+| macOS | `flutter build macos --release` | Requires local-network permission |
+| Linux | `flutter build linux --release` | Requires GTK 3 development packages |
 
-> Güvenlik duvarı notu: ilk çalıştırmada UDP `47801` (keşif) ve TCP `47802`
-> (transfer) portlarına izin verin.
+> **Firewall note:** allow UDP `47801` (discovery) and TCP `47802` (transfer)
+> when prompted on first launch.
 
-## Test
+## Testing
 
 ```bash
 flutter test
 ```
 
-Birim testleri şunları kapsar: HKDF test vektörü (RFC 5869), oturum anahtarı
-uyumu, kare mühürleme/çözme, bozuk kare reddi, protokol mesaj JSON turları,
-biçimlendirme yardımcıları.
+The unit and integration tests cover the HKDF test vector (RFC 5869), session
+key agreement, frame sealing and opening, malformed-frame rejection, protocol
+message JSON round trips, formatting helpers, PIN and fingerprint
+verification, TOFU/trusted-device checks, and Windows path-safety vectors.
 
-İki cihazla gerçek ağ testi için her iki makinede `flutter run` çalıştırıp
-aynı Wi-Fi/LAN ağına bağlanmanız yeterli — cihazlar birkaç saniye içinde
-birbirini görmelidir.
+For a real two-device network test, run `flutter run` on both machines and
+connect them to the same Wi-Fi/LAN network. The devices should discover each
+other within a few seconds.
 
-## Lisans
+## License
 
-Bu projenin tüm kodu özgün olarak yazılmıştır. Dağıtmak isterseniz
-`LICENSE` dosyası ekleyip (örn. Apache-2.0 veya MIT) seçiminizi belirtebilirsiniz.
+All code in this project was written specifically for SendLyra. Add a
+`LICENSE` file and choose a license (for example, Apache-2.0 or MIT) before
+redistributing the project.
