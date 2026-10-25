@@ -254,6 +254,3 @@ durumda cihazlar aynı SSID'de görünse bile birbirleriyle bağlantı kuramaz.
 ## Lisans
 
 SendLyra, [MIT Lisansı](LICENSE) ile lisanslanmıştır.
-
-Proje kodu clean-room yaklaşımıyla özgün olarak geliştirilmiştir; LocalSend
-kodu kullanılmamıştır.
