@@ -45,7 +45,7 @@ class AppStrings {
   }
 
   static const Map<String, String> _tr = {
-    'appName': 'SendLyra',
+    'favoriteDefaultName': 'Favori',
     'tagline': 'Yerel ağında özgürce paylaş',
     'tabDevices': 'Cihazlar',
     'tabTransfers': 'Transferler',
@@ -224,7 +224,7 @@ class AppStrings {
   };
 
   static const Map<String, String> _en = {
-    'appName': 'SendLyra',
+    'favoriteDefaultName': 'Favorite',
     'tagline': 'Share freely on your local network',
     'tabDevices': 'Devices',
     'tabTransfers': 'Transfers',

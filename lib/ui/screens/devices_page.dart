@@ -410,6 +410,10 @@ class _DevicesPageState extends State<DevicesPage> {
     );
     if (result != null && result.trim().isNotEmpty) {
       await settings.setFavorite(device.fingerprint, true, name: result);
+    } else if (result != null) {
+      // Boş ad girildi — i18n varsayılan adıyla kaydet (D-07).
+      await settings.setFavorite(device.fingerprint, true,
+          fallbackName: s.t('favoriteDefaultName'));
     }
   }
 
@@ -576,7 +580,8 @@ class _DevicesPageState extends State<DevicesPage> {
                       isFavorite: false,
                       onToggleFavorite: () async {
                         await settings.setFavorite(device.fingerprint, true,
-                            name: device.name);
+                            name: device.name,
+                            fallbackName: s.t('favoriteDefaultName'));
                         if (mounted) await _askFavoriteName(device);
                       },
                       onSendFiles: () => _startSendFlow(),

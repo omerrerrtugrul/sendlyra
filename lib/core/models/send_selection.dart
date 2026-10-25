@@ -1,6 +1,12 @@
 import 'dart:io';
 import 'dart:isolate';
 
+/// [expandSelectionsAsync] kayıtlarında kök adı bulunamazsa kullanılan yedek
+/// önek. Bu değer bir **dosya yolu bileşeni** olur — dolayısıyla bilinçli olarak
+/// yerelleştirilmez (arayüz dilinden bağımsız, deterministik kalmalıdır; bkz.
+/// D-07 notu). Arayüz metinleri `lib/ui/strings.dart` üzerinden i18n'lidir.
+const String fallbackRootName = 'root';
+
 /// Gönderim için seçilen bir kök öğe (dosya veya klasör).
 class SendSelection {
   final String path;
@@ -139,7 +145,7 @@ Future<List<SendFileEntry>> expandSelectionsAsync(
       relPath: item['rel'] as String,
       size: item['size'] as int?,
     );
-    final root = (item['root'] as String?) ?? 'kok';
+    final root = (item['root'] as String?) ?? fallbackRootName;
     var rel = entry.relPath;
     if (!seen.add(rel)) {
       var candidate = '$root-$rel';

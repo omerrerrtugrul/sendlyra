@@ -77,5 +77,5 @@ birbirini görmelidir.
 
 ## Lisans
 
-Bu projenin tüm kodu özgün olarak yazılmıştır. Dağıtmak isterseniz
-`LICENSE` dosyası ekleyip (örn. Apache-2.0 veya MIT) seçiminizi belirtebilirsiniz.
+Bu projenin tüm kodu özgün olarak yazılmıştır (clean-room; LocalSend kodu
+kullanılmamıştır). [MIT](LICENSE) lisansı altındadır.

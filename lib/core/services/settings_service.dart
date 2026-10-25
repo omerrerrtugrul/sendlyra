@@ -120,11 +120,13 @@ class SettingsService extends ChangeNotifier {
 
   String? favoriteName(String fingerprint) => favoriteNames[fingerprint];
 
+  /// [fallbackName], ad verilmediğinde kullanılır — UI katmanından i18n ile
+  /// geçilir (D-07: çekirdek içinde sabit Türkçe metin tutulmaz).
   Future<void> setFavorite(String fingerprint, bool favorite,
-      {String? name}) async {
+      {String? name, String fallbackName = 'Favorite'}) async {
     if (favorite) {
       favoriteNames[fingerprint] =
-          (name != null && name.trim().isNotEmpty) ? name.trim() : 'Favori';
+          (name != null && name.trim().isNotEmpty) ? name.trim() : fallbackName;
     } else {
       favoriteNames.remove(fingerprint);
     }
@@ -132,10 +134,11 @@ class SettingsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> renameFavorite(String fingerprint, String name) async {
+  Future<void> renameFavorite(String fingerprint, String name,
+      {String fallbackName = 'Favorite'}) async {
     if (!favoriteNames.containsKey(fingerprint)) return;
     favoriteNames[fingerprint] =
-        name.trim().isEmpty ? 'Favori' : name.trim();
+        name.trim().isEmpty ? fallbackName : name.trim();
     await _persistFavorites();
     notifyListeners();
   }

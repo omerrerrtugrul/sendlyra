@@ -4,6 +4,16 @@ Bu dosya SendLyra sürümleri arasındaki önemli değişiklikleri kaydeder.
 
 ## [Unreleased]
 
+### 📄 D-03 · MIT lisansı + D-07 temizlik
+- **LICENSE** dosyası eklendi (MIT) ve README lisans bölümü güncellendi.
+- **D-07:** çekirdekteki sabit Türkçe metinler temizlendi — favori varsayılan
+  adı artık i18n (`favoriteDefaultName`, TR/EN) ile UI'dan geçilir; kullanılmayan
+  `appName` anahtarı kaldırıldı; `expandSelectionsAsync` yedek kök öneki
+  `fallbackRootName` sabitine taşındı (dosya yolu bileşeni olduğu için kasıtlı
+  olarak yerelleştirilmez — deterministik kalmalı).
+- Favori adı diyaloğu boş onaylandığında artık varsayılan adla kaydediliyor
+  (önceden işlem sessizce yapılmıyordu).
+
 ### 🌐 Faz 4 — Tarayıcı Paylaşımı (W-01…W-05, bu sürüm)
 - **W-01 Web sunucu modu:** uygulama içinden başlat/durdur; LAN IP + port ile
   erişim linki, QR, kopyala; yeni **"Web" sekmesi**.
