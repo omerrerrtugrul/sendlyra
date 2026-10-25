@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'core/services/history_service.dart';
 import 'core/services/identity_service.dart';
 import 'core/services/settings_service.dart';
+import 'core/services/share_intent_service.dart';
 import 'core/services/transfer_service.dart';
 import 'core/services/web_share_service.dart';
 import 'ui/screens/shell.dart';
@@ -16,6 +17,7 @@ class SendLyraApp extends StatelessWidget {
   final HistoryService history;
   final TransferService transfer;
   final WebShareService webShare;
+  final ShareIntentService shareIntent;
   final String? startupError;
 
   const SendLyraApp({
@@ -25,6 +27,7 @@ class SendLyraApp extends StatelessWidget {
     required this.history,
     required this.transfer,
     required this.webShare,
+    required this.shareIntent,
     this.startupError,
   });
 
@@ -37,6 +40,7 @@ class SendLyraApp extends StatelessWidget {
         ChangeNotifierProvider<TransferService>.value(value: transfer),
         ChangeNotifierProvider<HistoryService>.value(value: history),
         ChangeNotifierProvider<WebShareService>.value(value: webShare),
+        ChangeNotifierProvider<ShareIntentService>.value(value: shareIntent),
       ],
       child: Consumer<SettingsService>(
         builder: (context, settingsService, _) {

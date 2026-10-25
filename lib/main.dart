@@ -7,6 +7,7 @@ import 'core/services/identity_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/secret_store.dart';
 import 'core/services/settings_service.dart';
+import 'core/services/share_intent_service.dart';
 import 'core/services/transfer_service.dart';
 import 'core/services/web_share_service.dart';
 
@@ -35,6 +36,9 @@ Future<void> main() async {
       history: history,
       saveDirResolver: transfer.resolveSaveDir,
     );
+    // P-01: diğer uygulamalardan "Paylaş" menüsü.
+    final shareIntent = ShareIntentService();
+    await shareIntent.start();
 
     String? startupError;
     try {
@@ -50,6 +54,7 @@ Future<void> main() async {
       history: history,
       transfer: transfer,
       webShare: webShare,
+      shareIntent: shareIntent,
       startupError: startupError,
     ));
   } catch (e) {

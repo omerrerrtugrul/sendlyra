@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/services/identity_service.dart';
 import '../../core/services/settings_service.dart';
+import '../../core/services/share_intent_service.dart';
 import '../../core/services/transfer_service.dart';
 import '../logo.dart';
 import '../strings.dart';
@@ -28,12 +29,17 @@ class ShellScreen extends StatefulWidget {
 class _ShellScreenState extends State<ShellScreen> {
   int _index = 0;
   StreamSubscription<IncomingRequest>? _incomingSub;
+  StreamSubscription<SharedItems>? _shareSub;
 
   @override
   void initState() {
     super.initState();
     _incomingSub =
         context.read<TransferService>().incomingRequests.listen(_onIncoming);
+    // P-01: paylaşım geldiğinde cihazlar sekmesine geç (gönderim akışı orada).
+    _shareSub = context.read<ShareIntentService>().shared.listen((_) {
+      if (mounted) setState(() => _index = 0);
+    });
     if (widget.startupError != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -75,6 +81,7 @@ class _ShellScreenState extends State<ShellScreen> {
   @override
   void dispose() {
     _incomingSub?.cancel();
+    _shareSub?.cancel();
     super.dispose();
   }
 

@@ -4,6 +4,15 @@ Bu dosya SendLyra sürümleri arasındaki önemli değişiklikleri kaydeder.
 
 ## [Unreleased]
 
+### 📱 P-01 — Android "Paylaş" menüsü (share intent)
+- Diğer uygulamalardan gelen dosya/metin paylaşımı artık SendLyra'ya düşer:
+  dosyalar gönderim akışına (inceleme → çoklu alıcı), metin mesaj olarak girer.
+- `ACTION_SEND` / `ACTION_SEND_MULTIPLE` desteği; `content://` URI'leri native
+  tarafta cache'e kopyalanır (görünen ad korunur).
+- Uygulama kapalıyken gelen paylaşım kuyruğa alınır; açıkken gelenler akışla
+  bildirilir ve cihazlar sekmesine geçilir.
+- 7 yeni test (ayrıştırma + kuyruk + canlı akış).
+
 ### ✅ R-1 — Parmak izi doğrulama akışı
 - **Yeni doğrulama diyaloğu:** karşı cihazın ekranındaki (QR paneli / cihaz
   bilgisi) parmak iziyle birebir karşılaştırma; isteğe bağlı yapıştırma ile

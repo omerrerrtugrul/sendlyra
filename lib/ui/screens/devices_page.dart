@@ -12,6 +12,7 @@ import '../../core/models/send_selection.dart';
 import '../../core/models/transfer_job.dart';
 import '../../core/services/identity_service.dart';
 import '../../core/services/settings_service.dart';
+import '../../core/services/share_intent_service.dart';
 import '../../core/services/transfer_service.dart';
 import '../../core/utils/format.dart';
 import '../logo.dart';
@@ -33,6 +34,91 @@ class DevicesPage extends StatefulWidget {
 
 class _DevicesPageState extends State<DevicesPage> {
   bool _dragging = false;
+  StreamSubscription<SharedItems>? _shareSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // P-01: uygulama kapalıyken gelen paylaşım kuyrukta bekler; açıkken
+    // gelenler akışla bildirilir. İkisi de [_drainShares] ile tüketilir.
+    final share = context.read<ShareIntentService>();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _drainShares());
+    _shareSub = share.shared.listen((_) => _drainShares());
+  }
+
+  @override
+  void dispose() {
+    _shareSub?.cancel();
+    super.dispose();
+  }
+
+  /// Bekleyen paylaşımları sırayla gönderim akışına sokar.
+  Future<void> _drainShares() async {
+    final service = context.read<ShareIntentService>();
+    while (mounted) {
+      final items = service.consume();
+      if (items == null) return;
+      await _handleSharedItems(items);
+    }
+  }
+
+  /// P-01: paylaşılan dosyalar gönderim akışına, metin mesaj olarak girer.
+  Future<void> _handleSharedItems(SharedItems items) async {
+    if (items.files.isNotEmpty) {
+      await _startSendFlow(
+        preset: [
+          for (final f in items.files)
+            SendSelection(path: f.path, isDirectory: false),
+        ],
+      );
+    }
+    final text = items.text;
+    if (text != null && text.isNotEmpty && mounted) {
+      await _sendSharedText(text);
+    }
+  }
+
+  /// Paylaşılan metni seçilen cihazlara mesaj olarak gönderir.
+  Future<void> _sendSharedText(String text) async {
+    final transfer = context.read<TransferService>();
+    final settings = context.read<SettingsService>();
+    final devices = transfer.devices;
+    if (devices.isEmpty) {
+      await _manualConnect();
+      return;
+    }
+    final choices = [
+      for (final d in devices)
+        DeviceChoice(
+          id: d.id,
+          name: settings.isFavorite(d.fingerprint)
+              ? '${settings.favoriteName(d.fingerprint) ?? d.name} · ${d.name}'
+              : d.name,
+          subtitle: '${d.address}:${d.port}',
+        ),
+    ];
+    if (!mounted) return;
+    final picked = await DevicePickerDialog.show(context, choices,
+        multi: true);
+    if (picked == null || picked.isEmpty) return;
+    final byId = {for (final d in devices) d.id: d};
+    for (final choice in picked) {
+      final target = byId[choice.id];
+      if (target == null) continue;
+      await transfer.send(
+        target: target,
+        files: const [],
+        text: text,
+        pin: settings.pin,
+      );
+    }
+    if (!mounted) return;
+    widget.onGoToTransfers?.call();
+    final s = AppStrings.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(s.t('sendText'))),
+    );
+  }
 
   // ---------- Gönderim akışı ----------
 
