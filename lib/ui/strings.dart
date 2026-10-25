@@ -46,6 +46,21 @@ class AppStrings {
 
   static const Map<String, String> _tr = {
     'favoriteDefaultName': 'Favori',
+    'verifyTitle': 'Parmak izini doğrula',
+    'verifyIntro':
+        'Karşı cihazın ekranındaki (QR paneli veya cihaz bilgisi) parmak iziyle aşağıdaki izi karşılaştırın. İsterseniz karşı cihazın izini aşağıya yapıştırın; eşleşme otomatik kontrol edilir.',
+    'verifyMyFingerprint': 'Benim parmak izim',
+    'verifyPeerFingerprint': 'Karşı cihazın parmak izi',
+    'verifyPasteLabel': 'Karşı cihazdaki iz (isteğe bağlı)',
+    'verifyMatch': 'Eşleşiyor',
+    'verifyMismatch': 'Eşleşmiyor',
+    'verifyConfirmCheck':
+        'İki izin aynı olduğunu görsel olarak doğruladım',
+    'verifySave': 'Doğrula ve kaydet',
+    'verifyDone': 'Cihaz parmak izi doğrulandı.',
+    'verifyBadge': 'Doğrulanmış',
+    'verifyUpdate': 'Doğrulamayı güncelle',
+    'verifyRemove': 'Doğrulamayı kaldır',
     'tagline': 'Yerel ağında özgürce paylaş',
     'tabDevices': 'Cihazlar',
     'tabTransfers': 'Transferler',
@@ -225,6 +240,20 @@ class AppStrings {
 
   static const Map<String, String> _en = {
     'favoriteDefaultName': 'Favorite',
+    'verifyTitle': 'Verify fingerprint',
+    'verifyIntro':
+        'Compare the fingerprint on the other device (QR panel or device info) with the fingerprint below. Optionally paste the other fingerprint here to check the match automatically.',
+    'verifyMyFingerprint': 'My fingerprint',
+    'verifyPeerFingerprint': 'Peer fingerprint',
+    'verifyPasteLabel': 'Fingerprint from the other device (optional)',
+    'verifyMatch': 'Matches',
+    'verifyMismatch': 'Does not match',
+    'verifyConfirmCheck': 'I visually confirmed both fingerprints match',
+    'verifySave': 'Verify and save',
+    'verifyDone': 'Device fingerprint verified.',
+    'verifyBadge': 'Verified',
+    'verifyUpdate': 'Update verification',
+    'verifyRemove': 'Remove verification',
     'tagline': 'Share freely on your local network',
     'tabDevices': 'Devices',
     'tabTransfers': 'Transfers',

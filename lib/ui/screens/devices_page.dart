@@ -19,6 +19,7 @@ import '../strings.dart';
 import '../widgets/device_tile.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/send_review_dialog.dart';
+import '../widgets/verify_fingerprint_dialog.dart';
 
 /// Keşfedilen cihazlar, kendi cihaz kartı ve gönderim akışları.
 class DevicesPage extends StatefulWidget {
@@ -360,6 +361,8 @@ class _DevicesPageState extends State<DevicesPage> {
 
   void _showDeviceInfo(LyraDevice device) {
     final s = AppStrings.of(context);
+    final settings = context.read<SettingsService>();
+    final verified = settings.isVerified(device.fingerprint);
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -369,6 +372,18 @@ class _DevicesPageState extends State<DevicesPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('${s.t('fingerprint')}: ${device.fingerprint}'),
+            if (verified) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(Icons.verified_rounded,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 4),
+                  Text(s.t('verifyBadge')),
+                ],
+              ),
+            ],
             const SizedBox(height: 6),
             Text('IP: ${device.address}:${device.port}'),
             const SizedBox(height: 6),
@@ -376,12 +391,44 @@ class _DevicesPageState extends State<DevicesPage> {
           ],
         ),
         actions: [
+          if (verified)
+            TextButton(
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                await settings.setVerified(device.fingerprint, false);
+              },
+              child: Text(s.t('verifyRemove')),
+            ),
+          FilledButton.tonal(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _verifyFingerprint(device);
+            },
+            child: Text(verified ? s.t('verifyUpdate') : s.t('verifyTitle')),
+          ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(s.t('close')),
           ),
         ],
       ),
+    );
+  }
+
+  /// R-1: parmak izi doğrulama akışı — kullanıcı karşı cihazın ekranındaki izle
+  /// karşılaştırır, eşleşme onaylanırsa doğrulama kaydedilir.
+  Future<void> _verifyFingerprint(LyraDevice device) async {
+    final settings = context.read<SettingsService>();
+    final ok = await VerifyFingerprintDialog.show(
+      context,
+      deviceName: device.name,
+      fingerprint: device.fingerprint,
+    );
+    if (!ok || !mounted) return;
+    await settings.setVerified(device.fingerprint, true);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppStrings.of(context).t('verifyDone'))),
     );
   }
 
@@ -561,6 +608,9 @@ class _DevicesPageState extends State<DevicesPage> {
                         displayName:
                             settings.favoriteName(device.fingerprint),
                         isFavorite: true,
+                        isVerified:
+                            settings.isVerified(device.fingerprint),
+                        onVerify: () => _verifyFingerprint(device),
                         onToggleFavorite: () =>
                             settings.setFavorite(device.fingerprint, false),
                         onRenameFavorite: () => _askFavoriteName(device),
@@ -578,6 +628,8 @@ class _DevicesPageState extends State<DevicesPage> {
                     child: DeviceTile(
                       device: device,
                       isFavorite: false,
+                      isVerified: settings.isVerified(device.fingerprint),
+                      onVerify: () => _verifyFingerprint(device),
                       onToggleFavorite: () async {
                         await settings.setFavorite(device.fingerprint, true,
                             name: device.name,

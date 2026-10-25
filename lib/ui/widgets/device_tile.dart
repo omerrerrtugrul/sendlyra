@@ -9,24 +9,28 @@ class DeviceTile extends StatelessWidget {
   final LyraDevice device;
   final String? displayName;
   final bool isFavorite;
+  final bool isVerified;
   final VoidCallback? onToggleFavorite;
   final VoidCallback? onRenameFavorite;
   final VoidCallback? onSendFiles;
   final VoidCallback? onSendText;
   final VoidCallback? onSendClipboard;
   final VoidCallback? onInfo;
+  final VoidCallback? onVerify;
 
   const DeviceTile({
     super.key,
     required this.device,
     this.displayName,
     this.isFavorite = false,
+    this.isVerified = false,
     this.onToggleFavorite,
     this.onRenameFavorite,
     this.onSendFiles,
     this.onSendText,
     this.onSendClipboard,
     this.onInfo,
+    this.onVerify,
   });
 
   IconData get _icon {
@@ -69,6 +73,11 @@ class DeviceTile extends StatelessWidget {
               const SizedBox(width: 6),
               Icon(Icons.star_rounded, size: 18, color: Colors.amber.shade700),
             ],
+            if (isVerified) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.verified_rounded,
+                  size: 18, color: scheme.primary),
+            ],
           ],
         ),
         subtitle: Text(
@@ -82,6 +91,20 @@ class DeviceTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (onVerify != null)
+              IconButton(
+                tooltip: isVerified
+                    ? s.t('verifyBadge')
+                    : s.t('verifyTitle'),
+                onPressed: onVerify,
+                icon: Icon(
+                  isVerified
+                      ? Icons.verified_rounded
+                      : Icons.verified_outlined,
+                  size: 22,
+                  color: isVerified ? scheme.primary : null,
+                ),
+              ),
             if (onToggleFavorite != null)
               IconButton(
                 tooltip: isFavorite

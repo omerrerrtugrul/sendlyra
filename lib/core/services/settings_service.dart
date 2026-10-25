@@ -13,6 +13,7 @@ class SettingsService extends ChangeNotifier {
   static const _kRequireApproval = 'settings.requireApproval';
   static const _kPin = 'settings.pin';
   static const _kTrusted = 'settings.trustedFps';
+  static const _kVerified = 'settings.verifiedFps';
   static const _kQuickSave = 'settings.quickSave';
   static const _kFavorites = 'settings.favorites';
   static const _kKnownPeers = 'settings.knownPeers';
@@ -44,6 +45,10 @@ class SettingsService extends ChangeNotifier {
   /// Güvenilir cihazlar — her zaman **doğrulanmış parmak izine** bağlıdır;
   /// karşı tarafın beyan ettiği kimliğe değil (taklit engeli).
   late List<String> trustedFingerprints;
+
+  /// R-1: parmak izi karşılaştırmasıyla kullanıcı tarafından doğrulanmış
+  /// cihazların parmak izleri (QR/ekran üzerinden birebir karşılaştırma).
+  late List<String> verifiedFingerprints;
 
   /// Favoriler — anahtar: parmak izi, değer: özel ad.
   late Map<String, String> favoriteNames;
@@ -80,6 +85,7 @@ class SettingsService extends ChangeNotifier {
     // (secrets == null, ör. testler) eski düz metin akışı korunur.
     pin = (secrets == null) ? prefs.getString(_kPin) : null;
     trustedFingerprints = prefs.getStringList(_kTrusted) ?? [];
+    verifiedFingerprints = prefs.getStringList(_kVerified) ?? [];
     favoriteNames = _decodeFavorites(prefs.getString(_kFavorites));
     knownPeers = _decodeFavorites(prefs.getString(_kKnownPeers));
     transferPort = prefs.getInt(_kTransferPort) ?? 47802;
@@ -298,6 +304,22 @@ class SettingsService extends ChangeNotifier {
       trustedFingerprints.remove(fingerprint);
     }
     await prefs.setStringList(_kTrusted, trustedFingerprints);
+    notifyListeners();
+  }
+
+  /// R-1: parmak izi karşılaştırmasıyla doğrulanmış mı?
+  bool isVerified(String fingerprint) =>
+      verifiedFingerprints.contains(fingerprint);
+
+  /// R-1: parmak izi doğrulamasını kaydeder/kaldırır. Doğrulama, kullanıcının
+  /// karşı cihazın ekranındaki izle birebir karşılaştırma yapmasıyla verilir.
+  Future<void> setVerified(String fingerprint, bool verified) async {
+    if (verified && !verifiedFingerprints.contains(fingerprint)) {
+      verifiedFingerprints.add(fingerprint);
+    } else if (!verified) {
+      verifiedFingerprints.remove(fingerprint);
+    }
+    await prefs.setStringList(_kVerified, verifiedFingerprints);
     notifyListeners();
   }
 

@@ -4,6 +4,16 @@ Bu dosya SendLyra sürümleri arasındaki önemli değişiklikleri kaydeder.
 
 ## [Unreleased]
 
+### ✅ R-1 — Parmak izi doğrulama akışı
+- **Yeni doğrulama diyaloğu:** karşı cihazın ekranındaki (QR paneli / cihaz
+  bilgisi) parmak iziyle birebir karşılaştırma; isteğe bağlı yapıştırma ile
+  otomatik eşleşme kontrolü, yalnızca eşleşmede kaydetmeye izin verilir.
+- **Doğrulama rozeti:** doğrulanmış cihazlarda ✓ rozeti + cihaz bilgisi
+  diyaloğundan doğrulama/kaldırma.
+- `fingerprint_matcher` yardımcıları: gösterim ayraçlarından bağımsız
+  karşılaştırma + okunaklı blok gösterimi.
+- 12 yeni birim testi (karşılaştırma + doğrulama kaydı kalıcılığı).
+
 ### 📄 D-03 · MIT lisansı + D-07 temizlik
 - **LICENSE** dosyası eklendi (MIT) ve README lisans bölümü güncellendi.
 - **D-07:** çekirdekteki sabit Türkçe metinler temizlendi — favori varsayılan
